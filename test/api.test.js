@@ -1,0 +1,15 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {createApp} from '../src/server.js';
+import {createProvider} from '../src/providers/index.js';
+let server,base;
+before(async()=>{server=createApp();await new Promise(r=>server.listen(0,'127.0.0.1',r));base=`http://127.0.0.1:${server.address().port}`;});
+after(()=>new Promise(r=>server.close(r)));
+const read=async p=>{const r=await fetch(base+p);return {status:r.status,data:await r.json()};};
+test('제품명/업체명 복합 검색 및 공백 정규화',async()=>{const r=await read('/api/products?q='+encodeURIComponent('우리 쌀')+'&manufacturer='+encodeURIComponent('햇살'));assert.equal(r.status,200);assert.equal(r.data.items.length,1);assert.equal(r.data.meta.liveVerified,false);assert.equal(r.data.items[0].provenance.kind,'demo');});
+test('빈 검색 결과 및 최대 길이 검증',async()=>{assert.equal((await read('/api/products?q=xxxx')).data.items.length,0);assert.equal((await read('/api/products?q='+'a'.repeat(101))).status,400);});
+test('회수 조회와 상세/미존재 처리',async()=>{assert.equal((await read('/api/recalls')).data.items.length,2);assert.equal((await read('/api/products/demo-001')).data.safety.events.length,1);assert.equal((await read('/api/products/missing')).status,404);assert.equal((await read('/api/missing')).status,404);});
+test('알레르기 표시 미확인 상태를 유지',async()=>{assert.equal((await read('/api/products/demo-002')).data.product.label.status,'unknown');});
+test('live 모드와 잘못된 모드는 예시 데이터로 대체되지 않음',()=>{assert.throws(()=>createProvider('live'));assert.throws(()=>createProvider('typo'));});
+test('정적 자산, 보안 헤더, 파일 노출 방지',async()=>{const r=await fetch(base);assert.equal(r.status,200);assert.match(r.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.match(await r.text(),/가상 제품/);assert.equal((await read('/.env')).status,404);assert.equal((await read('/src/server.js')).status,404);assert.equal((await fetch(base+'/api/products',{method:'POST'})).status,405);});
+test('상위 provider 장애를 빈 결과로 위장하지 않음',async()=>{const s=createApp({provider:{kind:'demo',search:async()=>{throw new Error('secret');}}});await new Promise(r=>s.listen(0,'127.0.0.1',r));try{const r=await fetch(`http://127.0.0.1:${s.address().port}/api/products`);assert.equal(r.status,500);assert.doesNotMatch(await r.text(),/secret/);}finally{await new Promise(r=>s.close(r));}});

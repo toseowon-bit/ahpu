@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MfdsClient} from '../src/providers/mfds-client.js';
+test('전송 계층 페이지/타임스탬프 계약 (모의 응답)',async()=>{let requested;const c=new MfdsClient({apiKey:'TEST_ONLY',fetchImpl:async(url,options)=>{requested=url;assert.equal(options.redirect,'error');assert.ok(options.signal);return {ok:true,json:async()=>({I0490:{RESULT:{CODE:'INFO-000'},row:[{unverified:true}],total_count:'1'}})};}});const r=await c.readRecallPage(1,5);assert.match(requested,/\/I0490\/json\/1\/5$/);assert.equal(r.validated,false);assert.equal(r.rows.length,1);assert.equal(r.totalCount,1);assert.ok(r.fetchedAt);});
+test('인증 오류/빈 응답/스키마 변경은 실패, API 키는 노출하지 않음',async()=>{for(const payload of [{I0490:{RESULT:{CODE:'ERROR-290'}}},{},{I0490:{RESULT:{CODE:'INFO-000'},row:'bad',total_count:1}}]){const c=new MfdsClient({apiKey:'PRIVATE_KEY',fetchImpl:async()=>({ok:true,json:async()=>payload})});await assert.rejects(c.readRecallPage(),e=>!e.message.includes('PRIVATE_KEY'));}});
+test('페이지 오류와 통신 오류 차단',async()=>{const c=new MfdsClient({apiKey:'PRIVATE_KEY',fetchImpl:async()=>{throw new Error('https://PRIVATE_KEY');}});await assert.rejects(c.readRecallPage(0,1));await assert.rejects(c.readRecallPage(1,1001));await assert.rejects(c.readRecallPage(),e=>!e.message.includes('PRIVATE_KEY'));assert.throws(()=>new MfdsClient());});
