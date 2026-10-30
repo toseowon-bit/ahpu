@@ -4,8 +4,8 @@ import {fileURLToPath} from 'node:url';
 import {createProvider} from './providers/index.js';
 import {productSafety} from './matching.js';
 const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8']};
-export function createApp({provider = createProvider(process.env.DATA_PROVIDER || 'demo')} = {}) {
- return http.createServer(async (req,res)=> {
+export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo')} = {}) {
+ return async (req,res)=> {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
   res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
@@ -34,7 +34,10 @@ export function createApp({provider = createProvider(process.env.DATA_PROVIDER |
    }
    return json(404,{error:'경로를 찾지 못했습니다.'});
   } catch {return json(500,{error:'정보를 불러오지 못했습니다. 다시 시도해 주세요.'});}
- });
+ };
+}
+export function createApp(options) {
+ return http.createServer(createHandler(options));
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
  const server=createApp();

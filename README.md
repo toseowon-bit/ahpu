@@ -49,3 +49,11 @@ docs/                       아키텍처·API·검증 및 개발 순서
 ## 다음 개발
 
 실제 데이터 연결 전 [데이터 검증 계획](docs/DATA_VALIDATION.md)을 완료하세요. 데이터 계약과 확장 계획은 [아키텍처](docs/ARCHITECTURE.md), 웹 API는 [API 명세](docs/API.md)에 정리했습니다. 전송 도구와 모의 응답 테스트의 통과는 실제 API 연결 검증을 의미하지 않습니다.
+
+## Vercel 배포
+
+`vercel.json`과 `api/index.js`가 포함되어 있습니다. 정적 화면은 `public/`, `/api/*` 요청은 Node.js 함수에서 처리합니다. 장시간 실행되는 `npm start` 서버 대신 동일한 요청 처리 함수를 재사용합니다. Node.js는 24.x입니다.
+
+Vercel에서 GitHub의 `toseowon-bit/ahpu` 저장소를 Import하고 프로젝트 루트를 저장소 최상위(`./`)로 설정합니다. Framework는 Other이며 빌드 명령 없음, Output Directory는 public입니다. 설정은 vercel.json에 포함되어 있습니다. 기본 demo 모드에는 환경변수나 API 키가 필요하지 않습니다.
+
+배포 후 `/`, `/api/status`, `/api/products?q=우리쌀`, `/api/products/demo-001`, `/api/recalls` 및 관심 제품 저장을 확인하세요. Vercel 함수의 실제 번들링·라우팅과 브라우저 동작은 원격 배포 후 확인해야 합니다. 관심 제품 저장은 배포 URL별 브라우저 저장소에 남으며 localhost의 저장 내용은 이전되지 않습니다.
