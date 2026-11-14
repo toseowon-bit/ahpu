@@ -12,6 +12,10 @@
   },
   "rewrites": [
     {
+      "source": "/demo",
+      "destination": "/demo.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index?__ahpu_route=:path*"
     }

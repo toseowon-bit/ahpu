@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {createProvider} from './providers/index.js';
 import {productSafety} from './matching.js';
-const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8']};
+const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8']};
 export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo')} = {}) {
  return async (req,res)=> {
   res.setHeader('X-Content-Type-Options','nosniff');
