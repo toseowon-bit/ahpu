@@ -202,6 +202,43 @@ screens.unregistered = (_, params) => `<div class="page"><div class="crumb"><a h
  <h3 class="mt">이렇게 확인해 보세요</h3><ul><li>제품명·제조사가 정확한지 다시 확인해 주세요.</li><li>포장지의 원재료명과 알레르기 표시를 직접 확인하세요.</li><li>식품안전나라에서 회수·판매중지 원문을 조회할 수 있어요.</li></ul>
  <div class="row mt"><a class="btn ghost" href="#/search">다시 검색</a><button class="btn" data-act="report" data-name="${esc(params.get('name')||'')}">미등록 제품 알리기</button></div></div></div>`;
 
+// ---------- illustrative price history (never real market data) ----------
+function demoPriceHistory(id, days) {
+ const count = [30,90,180].includes(Number(days)) ? Number(days) : 30;
+ const seed = [...String(id)].reduce((n,c)=>n+c.charCodeAt(0),0);
+ const base = 8500 + (seed % 8) * 1200;
+ const end = Date.UTC(2026,10,15);
+ return Array.from({length:count},(_,i)=>{
+  const day = 180-count+i;
+  const price = Math.round((base + ((Math.floor(day/6)+seed)%7)*300 - (day>168?600:0))/100)*100;
+  return {date:new Date(end-(count-1-i)*86400000).toISOString().slice(0,10),price};
+ });
+}
+function pricePanel(id, days=30) {
+ const data=demoPriceHistory(id,days), values=data.map(p=>p.price);
+ const current=values.at(-1), low=Math.min(...values), high=Math.max(...values);
+ const bottom=Math.floor((low-400)/1000)*1000, top=Math.ceil((high+400)/1000)*1000;
+ const x=i=>64+i/(data.length-1)*600, y=p=>202-(p-bottom)/(top-bottom)*166;
+ const path=data.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.price).toFixed(1)}`).join(' ');
+ const ticks=Array.from({length:4},(_,i)=>bottom+(top-bottom)*i/3);
+ return `<section class="card price-panel" data-price-id="${esc(id)}" aria-label="가격 흐름 가상 예시">
+ <div class="between"><div><span class="badge s-info">보조 정보 · 가상 가격</span><h2 class="mt">가격 흐름 미리보기</h2></div><span class="price-source">실제 쿠팡 가격 미연동</span></div>
+ <p class="small muted">알레르기 정보와 실제 포장지 확인이 먼저예요. 아래 금액·날짜·그래프는 기능 설명용 가상 데이터이며 구매 판단에 사용할 수 없습니다.</p>
+ <div class="price-stats"><div><span>현재가 예시</span><strong>${won(current)}</strong></div><div><span>선택 기간 최저가 예시</span><strong>${won(low)}</strong></div><div><span>기간 최저가 대비</span><strong>+${won(current-low)}</strong></div></div>
+ <div class="between price-toolbar"><span class="small">${data[0].date} ~ ${data.at(-1).date} · 예시 기간</span><div class="price-periods" role="group" aria-label="가격 그래프 예시 기간">${[[30,'1개월'],[90,'3개월'],[180,'6개월']].map(([n,label])=>`<button type="button" class="btn sm ghost" data-act="price-period" data-days="${n}" aria-pressed="${n===data.length}">${label}</button>`).join('')}</div></div>
+ <svg class="price-chart" viewBox="0 0 700 244" role="img" aria-label="가상 가격 변동 그래프. ${data.length}일 최저 ${won(low)}, 최고 ${won(high)}, 마지막 ${won(current)}">
+ <title>가상 가격 변동 그래프 · 실제 판매가 아님</title>
+ ${ticks.map(p=>`<line class="price-grid" x1="64" y1="${y(p)}" x2="664" y2="${y(p)}"/><text class="price-axis" x="54" y="${y(p)+4}" text-anchor="end">${Math.round(p).toLocaleString('ko-KR')}</text>`).join('')}
+ <line class="price-low" x1="64" y1="${y(low)}" x2="664" y2="${y(low)}"/>
+ <path class="price-line" d="${path}"/><circle class="price-dot" cx="664" cy="${y(current)}" r="5"/>
+ ${[0,Math.floor((data.length-1)/2),data.length-1].map(i=>`<text class="price-axis" x="${x(i)}" y="229" text-anchor="middle">${data[i].date.slice(5).replace('-','/')}</text>`).join('')}
+ </svg><div class="price-legend"><span>━━ 가상 판매가</span><span>┄┄ 선택 기간 최저가</span></div>
+ <details class="price-table"><summary>날짜별 예시 가격 보기</summary><div class="table-wrap"><table><thead><tr><th>날짜 (가상)</th><th>가격 (가상)</th></tr></thead><tbody>${data.slice().reverse().map(p=>`<tr><td>${p.date}</td><td>${won(p.price)}</td></tr>`).join('')}</tbody></table></div></details>
+ <p class="hint">예시 기준일: 2026-11-15 · 동일 옵션 기준을 가정한 화면입니다. 실제 연동 시 용량·수량·배송비·회원/쿠폰 조건과 확인 시각을 함께 표시합니다.</p>
+ <button type="button" class="btn ghost" disabled>가격 알림 · 실제 데이터 연동 후 제공</button></section>`;
+}
+// ---------- end illustrative price history ----------
+
 screens.result = pid => {
  const p = productById(pid);
  if (!p) return screens.unregistered(null,new URLSearchParams());
@@ -220,7 +257,8 @@ screens.result = pid => {
  <p class="hint">출처: 쿠팡 상세페이지 자동 수집 + 공공 데이터 이중 확인(가상) · 1차 확인 ${p.checked[0]} · 재확인 ${p.checked[1]} · 데이터 기준일 ${DATA_DATE}</p></section>
  <section class="card"><h2>공공 안전정보</h2>${rc?`<div class="table-wrap"><table><thead><tr><th>공고명</th><th>기관</th><th>고시일</th><th>구분</th></tr></thead><tbody><tr><td>${esc(rc.title)}</td><td>${esc(rc.agency)}</td><td>${rc.date}</td><td>${badge('recall')}</td></tr></tbody></table></div>`:'<p class="mb0">데이터 기준일 현재 이 제품과 연결된 회수·판매중지 정보가 없어요.</p><p class="hint">정보가 없다는 것이 안전을 뜻하지 않습니다.</p>'}<p class="hint">식품안전나라 회수·판매중지 Open API 연계 예정 · 데모는 가상 사례입니다.</p></section>
  <section class="card soft"><h2>다시 확인할 항목</h2><ul class="mb0"><li>받은 제품 포장지의 원재료명·알레르기 표시와 혼입 가능성 문구를 직접 확인하세요.</li><li>온라인 정보와 실제 포장이 다를 수 있어요. 제조일자·소비기한을 확인하세요.</li>${rows.some(x=>x.r.key==='na')?'<li>표시 의무 밖 알레르기 항목은 원재료명을 직접 읽어 확인하세요.</li>':''}<li>섭취 가능 여부는 자녀 주치의와 상의하세요.</li></ul></section>
- <div class="grid2"><section class="card"><h2>구매하기</h2><button class="btn block" data-act="buy">쿠팡에서 보기</button>${commission}${anyHit?`<a class="btn ghost block mt" href="#/alternatives/${p.id}">다시 확인해 볼 대안 제품 ${alts.length}개</a>`:''}</section>
+ ${pricePanel(p.id)}
+ <div class="grid2"><section class="card"><h2>구매하기</h2><button class="btn block" disabled>가상 제품 · 구매 링크 미연동</button>${commission}${anyHit?`<a class="btn ghost block mt" href="#/alternatives/${p.id}">다시 확인해 볼 대안 제품 ${alts.length}개</a>`:''}</section>
  <section class="card"><h2>이 제품에 문제가 있었나요?</h2><p class="small muted">같은 문제를 겪은 보호자와 함께 제조업체에 의견을 전달할 수 있어요. <span class="badge s-info">프리미엄</span></p><a class="btn ghost block" href="#/complain/${p.id}">공동 항의하기</a></section></div>
  ${disclaimer()}</div>`;
 };
@@ -421,7 +459,9 @@ function liveItem(pid) {
  <div class="mt">${it.url ? `<a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer sponsored">쿠팡에서 보기</a>` : '<button class="btn" disabled>모의 데이터라 구매 링크가 없어요</button>'}<p class="commission">${esc(it.disclosure)}</p></div></div>
  ${liveNotice}
  <section class="card"><h2>1. 식품안전나라에서 같은 제품 고르기</h2><p class="small muted">상품명이 서로 달라 자동으로 연결하지 않아요. 제품명·제조사를 보고 같은 제품을 골라 주세요.</p><div id="live-materials" data-load="live-materials" data-pid="${esc(pid)}"><p class="muted">원재료 보고 자료를 찾는 중…</p></div></section>
- <section class="card" id="live-analysis"><h2>2. 자녀 기준 원재료 확인</h2><p class="muted mb0">위에서 제품을 고르면 여기에 표시돼요.</p></section></div>`;
+ <section class="card" id="live-analysis"><h2>2. 자녀 기준 원재료 확인</h2><p class="muted mb0">위에서 제품을 고르면 여기에 표시돼요.</p></section>
+ ${pricePanel("live-preview")}
+ </div>`;
 }
 const loaders = {
  'live-search': async el => {
@@ -477,6 +517,13 @@ const confirmModal = (title, text, act, attrs, label='확인') => modal(`<h2>${t
 
 // ---------- actions ----------
 const actions = {
+ 'price-period': el => {
+  const panel=el.closest('[data-price-id]');
+  if (!panel) return;
+  const days=Number(el.dataset.days);
+  panel.outerHTML=pricePanel(panel.dataset.priceId,days);
+  document.querySelector(`[data-price-id] [data-days="${days}"]`)?.focus({preventScroll:true});
+ },
  role: el => go('/'+ROLE_HOME[el.dataset.role]),
  reset: () => confirmModal('데모를 초기화할까요?','자녀 프로필, 관심 제품, 항의·답변 등 이 브라우저의 데모 상태가 처음으로 돌아갑니다.','do-reset','','초기화'),
  'do-reset': () => { S = seedState(); save(); closeModal(); toast('데모를 초기화했어요'); go('/onboarding'); route(); },
