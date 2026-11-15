@@ -1,7 +1,7 @@
 // 어푸 데모 — 가상 데이터만 사용하는 화면 시연용 단일 페이지 앱.
 // 서버 전송 없음. 상태는 이 브라우저의 localStorage에만 저장(실패해도 동작).
 
-import {findAllergenMentions} from './allergen-keywords.js';
+import {findAllergenMentions, findCompositeIngredients} from './allergen-keywords.js';
 
 const STORE_KEY = 'ahpu-demo-v1';
 const DATA_DATE = '2026-11-01';
@@ -437,7 +437,7 @@ const loaders = {
   LIVE.candidates.set(el.dataset.pid, data.items);
   const head = `<p class="small muted">검색어: ‘${esc(data.meta.searchTerm)}’ · 식품안전나라 품목제조보고(원재료) ${sourceBadge(data.meta.source)}</p>`;
   if (!data.items.length) return head + `<div class="card soft mb0"><span class="badge s-info">정보 부족</span><p class="mt mb0">식품안전나라에서 같은 이름의 원재료 보고 자료를 찾지 못했어요. <strong>대조할 수 없으니</strong> 포장지의 원재료명과 알레르기 표시를 직접 확인해 주세요.</p></div>`;
-  return head + `<ul class="list">${data.items.map((m, i) => `<li><div><strong>${esc(m.name)}</strong><div class="meta">${esc(m.maker || '제조사 정보 없음')} · 품목제조번호 ${esc(m.reportNo || '—')} · 보고일 ${esc(m.reportedAt || '—')}</div></div><button class="btn sm ghost" data-act="pick-material" data-pid="${esc(el.dataset.pid)}" data-i="${i}">이 제품이 맞아요</button></li>`).join('')}</ul>`;
+  return head + `<ul class="list">${data.items.map((m, i) => `<li><div><strong>${esc(m.name)}</strong><div class="meta">${esc(m.maker || '제조사 정보 없음')} · ${esc(m.foodType || '유형 정보 없음')} · 품목제조번호 ${esc(m.reportNo || '—')} · 변경일 ${esc(m.changedAt || m.reportedAt || '—')}</div></div><button class="btn sm ghost" data-act="pick-material" data-pid="${esc(el.dataset.pid)}" data-i="${i}">이 제품이 맞아요</button></li>`).join('')}</ul>`;
  }
 };
 async function hydrate() {
@@ -449,6 +449,7 @@ async function hydrate() {
 }
 function analysisHtml(m) {
  const kids = S.children;
+ const composites = findCompositeIngredients(m.rawMaterials);
  const all = kids.flatMap(c => findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []));
  const words = [...new Set(all.map(x => x.word))].sort((a, b) => b.length - a.length);
  let raw = esc(m.rawMaterials);
@@ -457,9 +458,11 @@ function analysisHtml(m) {
   const hits = findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []);
   return hits.length
    ? `<div class="child-card st-match"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-match">원재료명에서 발견</span></div><p class="small mb0">${hits.map(h => `${esc(h.allergen)}: ‘${esc(h.part)}’`).join(' · ')}</p></div></div>`
+   : composites.length
+   ? `<div class="child-card st-may"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-may">원재료 정보 불완전</span></div><p class="small mb0">원재료명에서 찾지 못했지만, 하위 성분이 공개되지 않은 복합원재료(${composites.map(esc).join(', ')})가 있어 대조할 수 없어요. 포장지의 알레르기 표시를 꼭 확인하세요.</p></div></div>`
    : `<div class="child-card st-info"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-info">원재료명에서 찾지 못함</span></div><p class="small mb0">찾지 못했다고 들어 있지 않다는 뜻은 아니에요. 알레르기 표시와 혼입 가능성 문구는 포장지에서 확인하세요.</p></div></div>`;
  }).join('') : '<p class="muted">등록된 자녀가 없어요. <a href="#/profile-new">자녀 등록</a></p>';
- return `<h2>2. 자녀 기준 원재료 확인</h2><dl class="kv"><dt>선택한 제품</dt><dd>${esc(m.name)} (${esc(m.maker || '제조사 정보 없음')})</dd><dt>품목제조번호</dt><dd>${esc(m.reportNo || '—')}</dd><dt>원재료명</dt><dd>${raw}</dd></dl>
+ return `<h2>2. 자녀 기준 원재료 확인</h2><dl class="kv"><dt>선택한 제품</dt><dd>${esc(m.name)} (${esc(m.maker || '제조사 정보 없음')})</dd><dt>품목제조번호</dt><dd>${esc(m.reportNo || '—')}</dd><dt>식품 유형</dt><dd>${esc(m.foodType || '—')}</dd><dt>최종 변경일</dt><dd>${esc(m.changedAt || m.reportedAt || '—')}</dd><dt>원재료명</dt><dd>${raw}</dd></dl>
  <div class="status-list mt">${cards}</div>
  <p class="disclaimer">출처: 식품안전나라 품목제조보고(원재료). 제조사가 보고한 원재료이며 현재 판매 중인 포장과 다를 수 있고, 복합원재료의 하위 성분이나 혼입 가능성 정보는 들어 있지 않아요. 자녀 정보는 이 브라우저 안에서만 비교했어요.</p>`;
 }

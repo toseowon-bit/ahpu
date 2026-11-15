@@ -59,6 +59,13 @@ export function findAllergenMentions(rawMaterials, allergens, customWords = []) 
  return found;
 }
 
+// 하위 성분이 공개되지 않는 복합원재료 이름(예: 기타가공품, 혼합제제, 효소식품).
+// 이런 항목이 있으면 '찾지 못함'이어도 원재료 정보가 불완전하다는 뜻이다.
+const COMPOSITE = /(가공품|혼합제제|조제품|식품|시즈닝|양념|소스|베이스|믹스|조미료)$/u;
+export function findCompositeIngredients(rawMaterials) {
+ return [...new Set(splitParts(rawMaterials).filter(p => COMPOSITE.test(p)))];
+}
+
 // 쿠팡 상품명에서 용량·수량·괄호 설명을 걷어내 식품안전나라 제품명 검색어로 쓴다.
 export function productSearchTerm(name) {
  return String(name || '')

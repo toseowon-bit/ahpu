@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {authorizationHeader, signedDate, parseSearchResponse, CoupangPartnersClient, COUPANG_SEARCH_PATH} from '../src/providers/coupang-partners.js';
 import {parseC002, MfdsMaterialsClient} from '../src/providers/mfds-materials.js';
-import {findAllergenMentions, productSearchTerm} from '../public/allergen-keywords.js';
+import {findAllergenMentions, findCompositeIngredients, productSearchTerm} from '../public/allergen-keywords.js';
+import {readFileSync} from 'node:fs';
 import {createApp} from '../src/server.js';
 
 const NOW = new Date(Date.UTC(2026, 10, 15, 3, 4, 5));
@@ -41,7 +42,7 @@ test('쿠팡 클라이언트: 경로·서명 헤더 전송, 실패 시 키를 �
 
 test('식품안전나라 C002: 정상·데이터 없음·형식 오류', () => {
  const ok = parseC002({C002: {RESULT: {CODE: 'INFO-000'}, row: [{PRDLST_NM: '쌀과자', RAWMTRL_NM: '쌀, 탈지분유', BSSH_NM: '업체', PRDLST_REPORT_NO: '123', PRMS_DT: '20250101'}]}});
- assert.deepEqual(ok, [{reportNo: '123', name: '쌀과자', maker: '업체', rawMaterials: '쌀, 탈지분유', reportedAt: '20250101'}]);
+ assert.deepEqual(ok, [{reportNo: '123', name: '쌀과자', maker: '업체', rawMaterials: '쌀, 탈지분유', reportedAt: '20250101', changedAt: null, licenseNo: null, foodType: null}]);
  assert.deepEqual(parseC002({C002: {RESULT: {CODE: 'INFO-200'}}}), []);
  assert.throws(() => parseC002({C002: {RESULT: {CODE: 'ERROR-300'}}}));
  assert.throws(() => parseC002({C002: {RESULT: {CODE: 'INFO-000'}, row: [{PRDLST_NM: '원재료 없음'}]}}));
@@ -93,4 +94,16 @@ test('실제 검색 API: 모의 모드 표시, 입력 검증, live 실패는 502
  } finally {
   await new Promise(r => server.close(r)); await new Promise(r => failing.close(r));
  }
+});
+
+test('식품안전나라 실제 견본 응답(C002)을 파싱하고 복합원재료를 감지한다', () => {
+ const sample = JSON.parse(readFileSync(new URL('./fixtures/mfds-c002-sample.json', import.meta.url), 'utf8'));
+ const rows = parseC002(sample);
+ assert.equal(rows.length, 3);
+ assert.deepEqual(rows[0], {reportNo: '1997040105528', name: '가시오가피 냉면', maker: '주식회사 금성에프앤비', rawMaterials: '밀가루, 정제수, 타피오카전분, 가시오갈피분말, 알카리제, 정제염', reportedAt: '20020409', changedAt: '20230610', licenseNo: '19970401055', foodType: '숙면'});
+ assert.deepEqual(findAllergenMentions(rows[0].rawMaterials, ['밀']).map(h => h.part), ['밀가루']);
+ assert.deepEqual(findCompositeIngredients(rows[0].rawMaterials), []);
+ assert.deepEqual(findAllergenMentions(rows[1].rawMaterials, ['대두']).map(h => h.part), ['분리대두단백']);
+ assert.deepEqual(findCompositeIngredients(rows[2].rawMaterials), ['효소식품', '곡류가공품']);
+ assert.deepEqual(findAllergenMentions(rows[2].rawMaterials, ['밀', '우유', '대두']), []);
 });
