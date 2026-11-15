@@ -46,7 +46,7 @@ http://127.0.0.1:3000 접속. 개발 중 자동 재시작은 `npm run dev`, 검�
 AWS_PROFILE=ahpu scripts/deploy-demo-s3.sh
 ```
 
-- 기본값: 버킷 `ahpu-demo-6a0deb`, 리전 `ap-northeast-2`. `DEMO_BUCKET`, `AWS_REGION`으로 변경. 새 AWS 환경(프로젝트)에서는 프로젝트 리전을 쓰세요.
+- 기본값: 버킷 `ahpu-demo-6a0deb`. 리전은 `AWS_REGION` → 프로필에 설정된 리전 → `ap-northeast-2` 순으로 정합니다. 새 AWS 환경(프로젝트)에서는 프로젝트 리전을 쓰세요. 버킷이 다른 리전에 있으면 그 리전을 알려 주고 멈춥니다.
 - 첫 배포는 CloudFront 전파에 3~10분 걸리며 스크립트가 완료를 기다립니다. 기다리지 않으려면 `DEMO_WAIT=0`.
 - 응답에는 CloudFront 관리형 SecurityHeadersPolicy(HSTS, nosniff 등)가 붙고, CSP는 페이지의 meta 태그로 적용됩니다.
 - `docs/aws-demo-s3-policy.json`은 기존 AWS 환경에서 배포 전용 IAM 사용자를 쓸 때의 최소 권한 정책입니다.
