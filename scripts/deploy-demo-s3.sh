@@ -14,10 +14,12 @@
 set -euo pipefail
 
 DEMO_BUCKET="${DEMO_BUCKET:-ahpu-demo-6a0deb}"
-AWS_REGION="${AWS_REGION:-ap-northeast-2}"
 DEMO_WAIT="${DEMO_WAIT:-1}"
-export AWS_REGION AWS_DEFAULT_REGION="$AWS_REGION"
 [ -n "${AWS_PROFILE:-}" ] && export AWS_PROFILE
+# 리전: AWS_REGION > 프로필에 설정된 리전 > 서울. 새 AWS 환경(프로젝트)은 프로젝트 리전에만 만들 수 있다.
+if [ -z "${AWS_REGION:-}" ] && command -v aws >/dev/null; then AWS_REGION="$(aws configure get region 2>/dev/null || true)"; fi
+AWS_REGION="${AWS_REGION:-ap-northeast-2}"
+export AWS_REGION AWS_DEFAULT_REGION="$AWS_REGION"
 
 # AWS 관리형 정책 ID (CloudFront 문서의 고정값)
 CACHE_POLICY_ID="658327ea-f89d-4fab-a63d-7e88639e58f6"      # Managed-CachingOptimized
@@ -51,6 +53,9 @@ elif grep -q -E '404|Not Found' <<<"$head_err"; then
   fi
   aws s3api wait bucket-exists --bucket "$DEMO_BUCKET"
   echo "생성 완료."
+elif grep -q -E '301|Moved Permanently|PermanentRedirect' <<<"$head_err"; then
+  actual="$(aws s3api get-bucket-location --bucket "$DEMO_BUCKET" --query LocationConstraint --output text 2>/dev/null || true)"
+  fail "버킷 '$DEMO_BUCKET'은(는) $AWS_REGION이 아니라 ${actual:-다른 리전}에 있습니다. AWS_REGION=${actual:-<버킷 리전>}을 붙여 다시 실행하세요."
 elif grep -q -E '403|Forbidden' <<<"$head_err"; then
   fail "'$DEMO_BUCKET'은(는) 다른 계정의 버킷이거나 접근 권한이 없습니다. DEMO_BUCKET에 다른 이름을 지정하세요."
 else
