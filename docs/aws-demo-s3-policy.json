@@ -8,13 +8,11 @@
         "s3:CreateBucket",
         "s3:ListBucket",
         "s3:GetBucketLocation",
-        "s3:PutBucketWebsite",
-        "s3:GetBucketWebsite",
-        "s3:PutBucketPolicy",
-        "s3:GetBucketPolicy",
         "s3:PutBucketPublicAccessBlock",
         "s3:GetBucketPublicAccessBlock",
-        "s3:PutBucketOwnershipControls"
+        "s3:PutBucketPolicy",
+        "s3:GetBucketPolicy",
+        "s3:DeleteBucketWebsite"
       ],
       "Resource": "arn:aws:s3:::ahpu-demo-6a0deb"
     },
@@ -23,6 +21,19 @@
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject"],
       "Resource": "arn:aws:s3:::ahpu-demo-6a0deb/*"
+    },
+    {
+      "Sid": "DemoCloudFront",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:ListOriginAccessControls",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:ListDistributions",
+        "cloudfront:CreateDistribution",
+        "cloudfront:GetDistribution",
+        "cloudfront:CreateInvalidation"
+      ],
+      "Resource": "*"
     }
   ]
 }

@@ -26,15 +26,18 @@ http://127.0.0.1:3000 접속. 개발 중 자동 재시작은 `npm run dev`, 검�
 
 모든 제품·업체·사례는 가상이며 실제 식품 판단에 사용할 수 없습니다.
 
-## S3 정적 웹사이트로 데모 배포
+## AWS(S3 + CloudFront)로 데모 배포
 
-`aws login`으로 로그인한 컴퓨터에서 실행합니다. 버킷이 없으면 만들고, 객체 읽기만 공개한 뒤 정적 웹사이트 호스팅을 켜고 업로드합니다. 여러 번 실행해도 안전합니다.
+`aws login`으로 로그인한 컴퓨터에서 실행합니다. 데모 파일은 비공개 S3 버킷에 두고, CloudFront가 Origin Access Control로만 읽어 HTTPS 주소(`https://xxxx.cloudfront.net/`)로 내보냅니다. 버킷 자체는 공개되지 않습니다. 여러 번 실행해도 안전하며, 재배포하면 CloudFront 캐시를 비웁니다.
 
 ```sh
 AWS_PROFILE=ahpu scripts/deploy-demo-s3.sh
 ```
 
-기본값은 버킷 `ahpu-demo-6a0deb`, 리전 `ap-northeast-2`이며 `DEMO_BUCKET`, `AWS_REGION`으로 바꿀 수 있습니다. 새 AWS 환경(프로젝트)에서는 프로젝트 리전에만 만들 수 있습니다. 계정 단위 퍼블릭 액세스 차단이 켜져 있으면 공개 정책 단계에서 멈추고 안내를 출력합니다. `docs/aws-demo-s3-policy.json`은 기존 AWS 환경에서 배포 전용 IAM 사용자를 쓸 때의 최소 권한 정책입니다.
+- 기본값: 버킷 `ahpu-demo-6a0deb`, 리전 `ap-northeast-2`. `DEMO_BUCKET`, `AWS_REGION`으로 변경. 새 AWS 환경(프로젝트)에서는 프로젝트 리전을 쓰세요.
+- 첫 배포는 CloudFront 전파에 3~10분 걸리며 스크립트가 완료를 기다립니다. 기다리지 않으려면 `DEMO_WAIT=0`.
+- 응답에는 CloudFront 관리형 SecurityHeadersPolicy(HSTS, nosniff 등)가 붙고, CSP는 페이지의 meta 태그로 적용됩니다.
+- `docs/aws-demo-s3-policy.json`은 기존 AWS 환경에서 배포 전용 IAM 사용자를 쓸 때의 최소 권한 정책입니다.
 
 ## 구현 상태
 

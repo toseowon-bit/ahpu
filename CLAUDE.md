@@ -74,3 +74,7 @@ Constraints for each level:
 - MUST flag best practices and explain trade-offs
 - MUST still execute the user's choice if they disagree with a suggestion
 <!-- END AWS Agent Toolkit rules -->
+
+## AWS help level (project setting)
+
+help_level: HIGH — chosen by the user on 2026-11-15. Explain what each AWS step does and why before running it, suggest better alternatives, and flag best practices and trade-offs, then follow the user's choice. Kept outside the BEGIN/END block so re-running the Agent Toolkit setup does not reset it.
