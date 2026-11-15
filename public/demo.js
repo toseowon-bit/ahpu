@@ -1,6 +1,8 @@
 // 어푸 데모 — 가상 데이터만 사용하는 화면 시연용 단일 페이지 앱.
 // 서버 전송 없음. 상태는 이 브라우저의 localStorage에만 저장(실패해도 동작).
 
+import {findAllergenMentions, findCompositeIngredients} from './allergen-keywords.js';
+
 const STORE_KEY = 'ahpu-demo-v1';
 const DATA_DATE = '2026-11-01';
 // 식품 알레르기 표시 의무 19개 항목(PRD 기준). 이 밖의 항목은 '대조 불가'로 표시한다.
@@ -115,6 +117,7 @@ const NAV = {
  guardian:[
   ['진입·프로필 등록',[['onboarding','온보딩·고지'],['profile-new','자녀 프로필 등록']]],
   ['상품 대조·결과 확인',[['home','홈'],['candidates/2002','후보 상품 선택'],['search','제품명 검색'],['unregistered','미등록 제품 안내'],['result/p02','대조 결과'],['alternatives/p02','대안 제품 추천']]],
+  ['실제 데이터 (베타)',[['coupang','실제 쿠팡 검색']]],
   ['프로필·관심 제품',[['profiles','자녀 프로필 관리'],['favorites','관심 제품 목록']]],
   ['공동 항의·답변 (프리미엄)',[['premium','프리미엄 안내'],['complaints','공동 항의 목록'],['complain/p03','공동 항의 개설·참여'],['my-complaints','내 항의 목록'],['answer/c2','공식 답변 확인']]]
  ],
@@ -389,6 +392,81 @@ screens['mk-answer'] = cid => {
  <ul class="small muted"><li>등록된 답변은 수정할 수 없으며 추가 답변만 덧붙일 수 있어요.</li><li>참여자 ${c.count}명 전원에게 같은 내용으로 즉시 전달돼요.</li></ul><button class="btn">답변 등록</button></fieldset>${can?'':'<p class="hint">확인되지 않은 계정은 공식 답변을 등록할 수 없어요.</p>'}</form>`}</div>`;
 };
 
+// ---------- 실제 쿠팡 검색 (베타): 서버 API 경유, 자녀 정보는 브라우저 밖으로 보내지 않음 ----------
+const LIVE = {items:new Map(), candidates:new Map()};
+const won = n => n == null ? '' : n.toLocaleString('ko-KR') + '원';
+const sourceBadge = src => src === 'live' ? '<span class="badge s-delivered">실제 데이터</span>' : '<span class="badge s-review">모의 데이터 · 키 연결 전</span>';
+async function api(path) {
+ let res;
+ try { res = await fetch(path, {headers:{Accept:'application/json'}}); } catch { throw new Error('서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+ if (!(res.headers.get('content-type') || '').includes('application/json')) throw new Error('이 배포에서는 실제 검색을 쓸 수 없어요(서버 API가 없는 정적 배포). Vercel 주소에서 이용해 주세요.');
+ const data = await res.json();
+ if (!res.ok) throw new Error(data.error || '요청에 실패했어요.');
+ return data;
+}
+const liveNotice = `<div class="card warn small"><strong>베타 · 실제 데이터 연동 시험 중</strong><br>쿠팡 상품 정보와 식품안전나라 원재료 보고 자료를 이어 보여줍니다. 원재료명에서 단어를 찾는 것이며 <strong>알레르기 표시나 혼입 가능성 판정이 아닙니다.</strong> 반드시 실제 포장지 표시를 확인하세요.</div>`;
+
+screens.coupang = (pid, params) => {
+ if (pid) return liveItem(pid);
+ const q = params.get('q') || '';
+ return `<div class="page"><div class="crumb"><a href="#/home">홈</a> › 실제 쿠팡 검색</div><h1>실제 쿠팡 검색 <span class="badge s-info">베타</span></h1>${liveNotice}
+ <form data-form="live-search" class="searchbox"><input type="search" name="q" value="${esc(q)}" required maxlength="50" placeholder="예: 쌀과자, 아기 치즈" aria-label="쿠팡 상품 검색"><button class="btn">검색</button></form>
+ ${q ? `<div id="live-results" data-load="live-search" data-q="${esc(q)}" class="mt"><p class="muted">불러오는 중…</p></div>` : '<p class="hint mt">검색어를 입력하면 쿠팡 파트너스 API로 상품을 찾습니다.</p>'}</div>`;
+};
+function liveItem(pid) {
+ const it = LIVE.items.get(pid);
+ if (!it) return `<div class="page"><div class="card"><h2>상품 정보를 다시 불러와 주세요</h2><p>새로고침하면 검색 결과가 지워져요. 다시 검색해서 상품을 골라 주세요.</p><a class="btn" href="#/coupang">실제 쿠팡 검색</a></div></div>`;
+ return `<div class="page"><div class="crumb"><a href="#/coupang">실제 쿠팡 검색</a> › 원재료 확인</div>
+ <div class="card"><div class="item-main">${it.image ? `<div class="thumb"><img src="${esc(it.image)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : `<div class="thumb">🛒</div>`}<div><h1 class="mb0">${esc(it.name)}</h1><p class="meta">${esc(it.category || '')} ${it.price != null ? '· ' + won(it.price) : ''} ${it.isRocket ? '· 로켓배송' : ''}</p>${sourceBadge(it.source)}</div></div>
+ <div class="mt">${it.url ? `<a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer sponsored">쿠팡에서 보기</a>` : '<button class="btn" disabled>모의 데이터라 구매 링크가 없어요</button>'}<p class="commission">${esc(it.disclosure)}</p></div></div>
+ ${liveNotice}
+ <section class="card"><h2>1. 식품안전나라에서 같은 제품 고르기</h2><p class="small muted">상품명이 서로 달라 자동으로 연결하지 않아요. 제품명·제조사를 보고 같은 제품을 골라 주세요.</p><div id="live-materials" data-load="live-materials" data-pid="${esc(pid)}"><p class="muted">원재료 보고 자료를 찾는 중…</p></div></section>
+ <section class="card" id="live-analysis"><h2>2. 자녀 기준 원재료 확인</h2><p class="muted mb0">위에서 제품을 고르면 여기에 표시돼요.</p></section></div>`;
+}
+const loaders = {
+ 'live-search': async el => {
+  const data = await api('/api/coupang/search?q=' + encodeURIComponent(el.dataset.q));
+  data.items.forEach(it => LIVE.items.set(it.productId, {...it, source:data.meta.source, disclosure:data.meta.disclosure}));
+  return `<div class="between"><p class="small muted mb0">${data.items.length}개 · ${sourceBadge(data.meta.source)}</p></div>` + (data.items.length
+   ? `<ul class="list card mt">${data.items.map(it => `<li><div class="item-main">${it.image ? `<div class="thumb"><img src="${esc(it.image)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : `<div class="thumb">🛒</div>`}<div><strong>${esc(it.name)}</strong><div class="meta">${esc(it.category || '')} ${it.price != null ? '· ' + won(it.price) : ''}</div></div></div><a class="btn sm ghost" href="#/coupang/${encodeURIComponent(it.productId)}">원재료 확인</a></li>`).join('')}</ul><p class="commission">${esc(data.meta.disclosure)}</p>`
+   : `<div class="card empty">${seal()}<h3>검색 결과가 없어요</h3></div>`);
+ },
+ 'live-materials': async el => {
+  const it = LIVE.items.get(el.dataset.pid);
+  const data = await api('/api/materials/search?q=' + encodeURIComponent(it.name));
+  LIVE.candidates.set(el.dataset.pid, data.items);
+  const head = `<p class="small muted">검색어: ‘${esc(data.meta.searchTerm)}’ · 식품안전나라 품목제조보고(원재료) ${sourceBadge(data.meta.source)}</p>`;
+  if (!data.items.length) return head + `<div class="card soft mb0"><span class="badge s-info">정보 부족</span><p class="mt mb0">식품안전나라에서 같은 이름의 원재료 보고 자료를 찾지 못했어요. <strong>대조할 수 없으니</strong> 포장지의 원재료명과 알레르기 표시를 직접 확인해 주세요.</p></div>`;
+  return head + `<ul class="list">${data.items.map((m, i) => `<li><div><strong>${esc(m.name)}</strong><div class="meta">${esc(m.maker || '제조사 정보 없음')} · ${esc(m.foodType || '유형 정보 없음')} · 품목제조번호 ${esc(m.reportNo || '—')} · 변경일 ${esc(m.changedAt || m.reportedAt || '—')}</div></div><button class="btn sm ghost" data-act="pick-material" data-pid="${esc(el.dataset.pid)}" data-i="${i}">이 제품이 맞아요</button></li>`).join('')}</ul>`;
+ }
+};
+async function hydrate() {
+ for (const el of document.querySelectorAll('[data-load]')) {
+  const fn = loaders[el.dataset.load]; el.removeAttribute('data-load');
+  try { const html = await fn(el); if (el.isConnected) el.innerHTML = html; }
+  catch (err) { if (el.isConnected) el.innerHTML = `<div class="card warn small mb0">${esc(err.message)}</div>`; }
+ }
+}
+function analysisHtml(m) {
+ const kids = S.children;
+ const composites = findCompositeIngredients(m.rawMaterials);
+ const all = kids.flatMap(c => findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []));
+ const words = [...new Set(all.map(x => x.word))].sort((a, b) => b.length - a.length);
+ let raw = esc(m.rawMaterials);
+ if (words.length) raw = raw.replace(new RegExp(words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gu'), w => `<mark>${w}</mark>`);
+ const cards = kids.length ? kids.map(c => {
+  const hits = findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []);
+  return hits.length
+   ? `<div class="child-card st-match"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-match">원재료명에서 발견</span></div><p class="small mb0">${hits.map(h => `${esc(h.allergen)}: ‘${esc(h.part)}’`).join(' · ')}</p></div></div>`
+   : composites.length
+   ? `<div class="child-card st-may"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-may">원재료 정보 불완전</span></div><p class="small mb0">원재료명에서 찾지 못했지만, 하위 성분이 공개되지 않은 복합원재료(${composites.map(esc).join(', ')})가 있어 대조할 수 없어요. 포장지의 알레르기 표시를 꼭 확인하세요.</p></div></div>`
+   : `<div class="child-card st-info"><div class="avatar">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-info">원재료명에서 찾지 못함</span></div><p class="small mb0">찾지 못했다고 들어 있지 않다는 뜻은 아니에요. 알레르기 표시와 혼입 가능성 문구는 포장지에서 확인하세요.</p></div></div>`;
+ }).join('') : '<p class="muted">등록된 자녀가 없어요. <a href="#/profile-new">자녀 등록</a></p>';
+ return `<h2>2. 자녀 기준 원재료 확인</h2><dl class="kv"><dt>선택한 제품</dt><dd>${esc(m.name)} (${esc(m.maker || '제조사 정보 없음')})</dd><dt>품목제조번호</dt><dd>${esc(m.reportNo || '—')}</dd><dt>식품 유형</dt><dd>${esc(m.foodType || '—')}</dd><dt>최종 변경일</dt><dd>${esc(m.changedAt || m.reportedAt || '—')}</dd><dt>원재료명</dt><dd>${raw}</dd></dl>
+ <div class="status-list mt">${cards}</div>
+ <p class="disclaimer">출처: 식품안전나라 품목제조보고(원재료). 제조사가 보고한 원재료이며 현재 판매 중인 포장과 다를 수 있고, 복합원재료의 하위 성분이나 혼입 가능성 정보는 들어 있지 않아요. 자녀 정보는 이 브라우저 안에서만 비교했어요.</p>`;
+}
+
 // ---------- modal ----------
 function modal(html) {
  $('#modal-root').innerHTML = `<div class="modal-backdrop" data-act="close-bg"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
@@ -412,6 +490,7 @@ const actions = {
  'edit-child': el => { const c = S.children.find(x=>x.id===el.dataset.id); modal(`<h2>자녀 프로필 수정</h2><form data-form="profile-edit" data-id="${c.id}"><label for="alias">별칭</label><input type="text" id="alias" name="alias" required maxlength="10" value="${esc(c.alias)}"><label for="age">나이</label>${ageSelect(c.age)}${allergenFields(c)}<div class="actions"><button type="button" class="btn ghost" data-act="close">취소</button><button class="btn">저장</button></div></form>`); },
  'del-child': el => { const c = S.children.find(x=>x.id===el.dataset.id); confirmModal('프로필 삭제',`${esc(c.alias)} 프로필을 삭제하면 이 자녀 기준의 대조가 더 이상 표시되지 않아요. 삭제 후에는 복구할 수 없어요.`,'do-del-child',`data-id="${c.id}"`,'삭제'); },
  'do-del-child': el => { S.children = S.children.filter(c=>c.id!==el.dataset.id); save(); closeModal(); toast('프로필을 삭제했어요'); route(); },
+ 'pick-material': el => { const m = (LIVE.candidates.get(el.dataset.pid) || [])[Number(el.dataset.i)]; if (!m) return; const box = $('#live-analysis'); box.innerHTML = analysisHtml(m); box.scrollIntoView({behavior:'smooth', block:'start'}); },
  'premium-on': () => { S.premium = true; save(); toast('프리미엄이 켜졌어요 (데모)'); route(); },
  'premium-off': () => { S.premium = false; save(); route(); },
  'mk-logout': () => { S.makerSession = null; save(); go('/mk-login'); },
@@ -420,6 +499,7 @@ const actions = {
 };
 
 const forms = {
+ 'live-search': (fd) => go('/coupang?q=' + encodeURIComponent(String(fd.get('q')).trim())),
  consent: () => { S.consent = true; save(); go('/profile-new'); },
  'profile-new': (fd) => { S.children.push(childFrom(fd,uid('k'))); save(); toast('프로필을 저장했어요'); go('/home'); },
  'profile-edit': (fd, f) => { const i = S.children.findIndex(c=>c.id===f.dataset.id); S.children[i] = childFrom(fd,f.dataset.id); save(); closeModal(); toast('수정했어요'); route(); },
@@ -529,6 +609,7 @@ function route() {
  const html = screen(a, params, b);
  renderChrome(screens[name] ? path : 'home');
  $('#main').innerHTML = html;
+ hydrate();
  document.title = `어푸 데모 · ${$('#main h1')?.textContent || '홈'}`;
 }
 let lastPath = '';

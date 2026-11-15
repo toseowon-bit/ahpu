@@ -135,10 +135,12 @@ aws s3 cp dist/demo-static/demo.css "s3://$DEMO_BUCKET/demo.css" \
   --content-type "text/css; charset=utf-8" --cache-control "max-age=300"
 aws s3 cp dist/demo-static/demo.js "s3://$DEMO_BUCKET/demo.js" \
   --content-type "text/javascript; charset=utf-8" --cache-control "max-age=300"
+aws s3 cp dist/demo-static/allergen-keywords.js "s3://$DEMO_BUCKET/allergen-keywords.js" \
+  --content-type "text/javascript; charset=utf-8" --cache-control "max-age=300"
 if [ "$NEW_DIST" = 0 ]; then
   # 재배포: 엣지 캐시를 비워 바뀐 파일이 바로 보이게 한다(월 1,000경로까지 무료).
   aws cloudfront create-invalidation --distribution-id "$DIST_ID" \
-    --paths "/" "/index.html" "/demo.css" "/demo.js" --query Invalidation.Id --output text >/dev/null
+    --paths "/" "/index.html" "/demo.css" "/demo.js" "/allergen-keywords.js" --query Invalidation.Id --output text >/dev/null
   echo "캐시 무효화 요청 완료."
 fi
 
