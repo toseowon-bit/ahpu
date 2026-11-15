@@ -133,7 +133,7 @@ function renderChrome(route) {
   + `<div class="reset"><p>데모 상태는 이 브라우저에만 저장됩니다.</p><button type="button" data-act="reset">데모 초기화</button></div>`;
  const unread = S.notices.filter(x=>!x.read).length;
  $('#top-actions').innerHTML = role==='guardian'
-  ? `<a class="icon-btn" href="#/notifications" aria-label="알림 ${unread}건">🔔 알림${unread?`<span class="dot">${unread}</span>`:''}</a><span class="badge ${S.premium?'s-answered':'s-info'}">${S.premium?'프리미엄':'무료'}</span>`
+  ? `<a class="icon-btn" href="#/notifications" aria-label="알림 ${unread}건">🔔<span class="wide-only"> 알림</span>${unread?`<span class="dot">${unread}</span>`:''}</a><span class="badge ${S.premium?'s-answered':'s-info'}">${S.premium?'프리미엄':'무료'}</span>`
   : role==='maker' && S.makerSession ? `<span class="small muted">${esc(accountById(S.makerSession)?.company)}</span><button class="icon-btn" data-act="mk-logout">로그아웃</button>` : '';
 }
 
