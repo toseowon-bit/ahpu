@@ -5,3 +5,4 @@ coverage/
 playwright-results/
 .vercel/
 dist/
+.env*.local
