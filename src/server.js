@@ -3,12 +3,15 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {createProvider} from './providers/index.js';
 import {productSafety} from './matching.js';
-const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8']};
-export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo')} = {}) {
+import {createLookupProviders} from './providers/lookup.js';
+import {PARTNERS_DISCLOSURE} from './providers/coupang-partners.js';
+import {productSearchTerm} from '../public/allergen-keywords.js';
+const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8'],'/allergen-keywords.js':['allergen-keywords.js','text/javascript; charset=utf-8']};
+export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo'), lookup = createLookupProviders()} = {}) {
  return async (req,res)=> {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   const json = (code,data) => {res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   try {
    if (req.method !== 'GET') return json(405,{error:'GET 요청만 지원합니다.'});
@@ -19,6 +22,20 @@ export function createHandler({provider = createProvider(process.env.DATA_PROVID
     const q=url.searchParams.get('q')||'',manufacturer=url.searchParams.get('manufacturer')||'';
     if (q.length>100 || manufacturer.length>100) return json(400,{error:'검색어는 100자 이하로 입력해 주세요.'});
     return json(200,{meta,items:await provider.search({q,manufacturer})});
+   }
+   if (url.pathname === '/api/lookup/status') return json(200,{coupang:lookup.coupang.kind,materials:lookup.materials.kind,validated:false,disclosure:PARTNERS_DISCLOSURE});
+   if (url.pathname === '/api/coupang/search') {
+    const q=(url.searchParams.get('q')||'').trim();
+    if (!q || q.length>50) return json(400,{error:'검색어는 1~50자로 입력해 주세요.'});
+    try {return json(200,{meta:{source:lookup.coupang.kind,validated:false,disclosure:PARTNERS_DISCLOSURE},items:await lookup.coupang.search(q,10)});}
+    catch (e) {return json(502,{error:e.message});}
+   }
+   if (url.pathname === '/api/materials/search') {
+    const q=(url.searchParams.get('q')||'').trim();
+    if (!q || q.length>200) return json(400,{error:'제품명은 1~200자로 입력해 주세요.'});
+    const term=productSearchTerm(q);
+    try {return json(200,{meta:{source:lookup.materials.kind,validated:false,searchTerm:term},items:await lookup.materials.searchByName(term,10)});}
+    catch (e) {return json(502,{error:e.message});}
    }
    if (url.pathname === '/api/recalls') return json(200,{meta,items:await provider.listEvents()});
    if (url.pathname.startsWith('/api/products/')) {

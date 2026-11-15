@@ -3,7 +3,7 @@
 import {mkdir, readFile, writeFile, rm} from 'node:fs/promises';
 const src = new URL('../public/', import.meta.url);
 const out = new URL('../dist/demo-static/', import.meta.url);
-const csp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'";
+const csp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; base-uri 'none'; form-action 'self'";
 await rm(out, {recursive: true, force: true});
 await mkdir(out, {recursive: true});
 let html = await readFile(new URL('demo.html', src), 'utf8');
@@ -13,5 +13,5 @@ for (const f of ['demo.css', 'demo.js']) {
 }
 html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="${csp}">\n<meta name="referrer" content="no-referrer">`);
 await writeFile(new URL('index.html', out), html);
-for (const f of ['demo.css', 'demo.js']) await writeFile(new URL(f, out), await readFile(new URL(f, src)));
-console.log('dist/demo-static 생성: index.html, demo.css, demo.js');
+for (const f of ['demo.css', 'demo.js', 'allergen-keywords.js']) await writeFile(new URL(f, out), await readFile(new URL(f, src)));
+console.log('dist/demo-static 생성: index.html, demo.css, demo.js, allergen-keywords.js');
