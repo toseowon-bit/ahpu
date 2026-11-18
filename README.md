@@ -41,6 +41,8 @@ http://127.0.0.1:3000 접속. 개발 중 자동 재시작은 `npm run dev`, 검�
 
 ## AWS(S3 + CloudFront)로 데모 배포
 
+`main`에 병합하면 GitHub Actions가 자동으로 배포하도록 설정할 수 있습니다(AWS 키 저장 없이 OIDC 사용). 처음 한 번 하는 설정은 [자동 배포 설정](docs/DEPLOY_AWS.md)을 보세요. 아래는 내 컴퓨터에서 직접 배포하는 방법입니다.
+
 `aws login`으로 로그인한 컴퓨터에서 실행합니다. 데모 파일은 비공개 S3 버킷에 두고, CloudFront가 Origin Access Control로만 읽어 HTTPS 주소(`https://xxxx.cloudfront.net/`)로 내보냅니다. 버킷 자체는 공개되지 않습니다. 여러 번 실행해도 안전하며, 재배포하면 CloudFront 캐시를 비웁니다.
 
 ```sh
