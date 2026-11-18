@@ -37,6 +37,7 @@ http://127.0.0.1:3000 접속. 개발 중 자동 재시작은 `npm run dev`, 검�
 - 키가 없으면 `[모의]` 데이터로 동작합니다. 키는 `.env` 또는 Vercel 환경 변수에만 넣습니다: `COUPANG_ACCESS_KEY`, `COUPANG_SECRET_KEY`, `MFDS_API_KEY`.
 - 두 API의 경로·서명·응답 필드는 실제 키로 아직 검증하지 않았습니다. 식품안전나라 OpenAPI는 개발 환경에서 HTTPS 연결이 끊겨, HTTPS 지원과 해외(Vercel) 서버 접근 여부 확인이 필요합니다.
 - 서버 API가 필요하므로 S3·CloudFront 정적 배포에서는 이 화면이 안내 문구만 보여 줍니다.
+- 외부 API 호출 한도를 지키기 위해 검색 API에 호출 제한(IP당 분당 20회)과 5분 캐시가 있습니다. 자세한 내용은 [API 명세](docs/API.md)를 보세요.
 
 ## AWS(S3 + CloudFront)로 데모 배포
 

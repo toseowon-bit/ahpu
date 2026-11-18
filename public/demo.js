@@ -2,6 +2,7 @@
 // 서버 전송 없음. 상태는 이 브라우저의 localStorage에만 저장(실패해도 동작).
 
 import {findAllergenMentions, findCompositeIngredients} from './allergen-keywords.js';
+import {own, parseHash} from './route.js';
 
 const STORE_KEY = 'ahpu-demo-v1';
 const DATA_DATE = '2026-11-01';
@@ -81,7 +82,8 @@ const STATUS = {
  na:{label:'대조 불가',cls:'s-na',rank:2},
  none:{label:'일치 성분 없음',cls:'s-none',rank:1},
  recall:{label:'회수·판매중지 해당',cls:'s-recall',rank:6},
- unreg:{label:'미등록',cls:'s-unreg',rank:0}
+ unreg:{label:'미등록',cls:'s-unreg',rank:0},
+ nokid:{label:'자녀 미등록 · 대조 안 함',cls:'s-info',rank:0}
 };
 const CSTATUS = {review:['접수 · 검수 중','s-review'],delivered:['전달됨 · 답변 대기','s-delivered'],answered:['답변 완료','s-answered'],rejected:['반려','s-rejected']};
 const badge = key => `<span class="badge ${STATUS[key].cls}">${STATUS[key].label}</span>`;
@@ -101,7 +103,7 @@ function overall(pid) {
  const p = productById(pid);
  if (!p) return 'unreg';
  if (recallOf(pid)) return 'recall';
- if (!S.children.length) return p.label === 'provided' ? 'none' : 'info';
+ if (!S.children.length) return 'nokid'; // 대조할 자녀가 없으면 '일치 없음'으로 보이지 않게 한다
  return S.children.map(c => compareChild(p,c).key).sort((a,b)=>STATUS[b].rank-STATUS[a].rank)[0];
 }
 function alternatives(p) {
@@ -177,7 +179,7 @@ screens.home = () => {
 };
 
 screens.candidates = id => {
- const ids = BUNDLES[id] || BUNDLES['2002'];
+ const ids = own(BUNDLES, id) || BUNDLES['2002'];
  return `<div class="page"><div class="crumb"><a href="#/home">홈</a> › 쿠팡 링크 매칭</div><h1>후보 상품 선택</h1><p class="lead">공유한 링크가 묶음·옵션 상품이에요. 제품명·제조사를 확인하고 대조할 제품을 골라 주세요.</p>
  <ul class="list card">${ids.map(pid=>{const p=productById(pid);return `<li><div class="item-main"><div class="thumb">${ICONS[p.category]}</div><div><strong>${esc(p.name)}</strong><div class="meta">제조사: ${esc(p.maker)} · ${p.category} · ${p.stage}개월 이상</div></div></div><a class="btn sm" href="#/result/${p.id}">이 제품으로 대조</a></li>`;}).join('')}</ul>
  <div class="card soft"><h3>찾는 제품이 목록에 없나요?</h3><p class="small muted">제품명으로 검색하거나, 미등록 제품을 알려 주세요.</p><div class="row"><a class="btn ghost sm" href="#/search">제품명으로 검색</a><a class="btn ghost sm" href="#/unregistered">미등록 제품 안내</a></div></div>
@@ -266,10 +268,14 @@ screens.result = pid => {
 screens.alternatives = pid => {
  const p = productById(pid); if (!p) return screens.unregistered(null,new URLSearchParams());
  const alts = alternatives(p);
+ // 19개 밖 알레르기(예: 키위)는 가상 제품 표시와 대조할 수 없으므로 '일치 성분 없음'이라고 하지 않는다.
+ const customs = [...new Set(S.children.flatMap(c => c.custom || []))];
+ const altBadge = customs.length ? badge('na') : badge('none');
+ const customNote = customs.length ? `<div class="card soft small">${esc(customs.join(', '))}은(는) 표시 의무 19개 밖이라 대안 제품과 대조하지 못했어요. 원재료명을 직접 확인하세요.</div>` : '';
  return `<div class="page"><div class="crumb"><a href="#/result/${p.id}">대조 결과</a> › 대안 제품</div><h1>다시 확인해 볼 대안 제품</h1>
  <p class="lead">‘${esc(p.name)}’과 같은 종류(${p.category}) 중, <strong>등록된 모든 자녀</strong> 기준으로 일치·혼입 가능성 표시가 확인되지 않고 회수·판매중지에 해당하지 않는 제품을 월령 단계가 가까운 순으로 보여줍니다.</p>
- <div class="card warn small">이 목록은 적합성이나 안전을 보증하지 않습니다. 구매 전·섭취 전 포장지 표시를 직접 확인하세요.</div>
- ${alts.length?`<ul class="list card">${alts.map(q=>`<li><div class="item-main"><div class="thumb">${ICONS[q.category]}</div><div><strong>${esc(q.name)}</strong><div class="meta">${esc(q.maker)} · ${q.stage}개월 이상 · 데이터 기준일 ${DATA_DATE}</div></div></div><div class="row">${badge('none')}<a class="btn sm ghost" href="#/result/${q.id}">대조 결과</a></div></li>`).join('')}</ul>${commission}`
+ <div class="card warn small">이 목록은 적합성이나 안전을 보증하지 않습니다. 구매 전·섭취 전 포장지 표시를 직접 확인하세요.</div>${customNote}
+ ${alts.length?`<ul class="list card">${alts.map(q=>`<li><div class="item-main"><div class="thumb">${ICONS[q.category]}</div><div><strong>${esc(q.name)}</strong><div class="meta">${esc(q.maker)} · ${q.stage}개월 이상 · 데이터 기준일 ${DATA_DATE}</div></div></div><div class="row">${altBadge}<a class="btn sm ghost" href="#/result/${q.id}">대조 결과</a></div></li>`).join('')}</ul>${commission}`
  :`<div class="card empty">${seal()}<h3>조건에 맞는 대안 제품이 없어요</h3><p>모든 자녀 기준을 동시에 만족하는 같은 종류 제품을 찾지 못했어요.</p></div>`}</div>`;
 };
 
@@ -482,7 +488,8 @@ const loaders = {
 };
 async function hydrate() {
  for (const el of document.querySelectorAll('[data-load]')) {
-  const fn = loaders[el.dataset.load]; el.removeAttribute('data-load');
+  const fn = own(loaders, el.dataset.load); el.removeAttribute('data-load');
+  if (!fn) continue;
   try { const html = await fn(el); if (el.isConnected) el.innerHTML = html; }
   catch (err) { if (el.isConnected) el.innerHTML = `<div class="card warn small mb0">${esc(err.message)}</div>`; }
  }
@@ -492,8 +499,15 @@ function analysisHtml(m) {
  const composites = findCompositeIngredients(m.rawMaterials);
  const all = kids.flatMap(c => findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []));
  const words = [...new Set(all.map(x => x.word))].sort((a, b) => b.length - a.length);
- let raw = esc(m.rawMaterials);
- if (words.length) raw = raw.replace(new RegExp(words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gu'), w => `<mark>${w}</mark>`);
+ let raw = '';
+ {
+  // 원문에서 일치 위치를 찾은 뒤 조각마다 escape한다(escape된 HTML 안에서 찾으면 &#39; 같은 엔티티가 깨질 수 있음).
+  const text = m.rawMaterials;
+  const re = words.length ? new RegExp(words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'giu') : null;
+  let last = 0;
+  if (re) for (const hit of text.matchAll(re)) { raw += esc(text.slice(last, hit.index)) + `<mark>${esc(hit[0])}</mark>`; last = hit.index + hit[0].length; }
+  raw += esc(text.slice(last));
+ }
  const cards = kids.length ? kids.map(c => {
   const hits = findAllergenMentions(m.rawMaterials, c.allergens, c.custom || []);
   return hits.length
@@ -558,7 +572,7 @@ const forms = {
    const id = (u.pathname.match(/products\/(\d+)/)||[])[1];
    const p = PRODUCTS.find(x=>x.coupangId===id);
    if (p) return go('/result/'+p.id);
-   if (BUNDLES[id]) return go('/candidates/'+id);
+   if (own(BUNDLES, id)) return go('/candidates/'+id);
    return go('/search?fail=1');
   }
   go('/search?q='+encodeURIComponent(v));
@@ -637,24 +651,22 @@ function childFrom(fd, id) {
 
 document.addEventListener('click', e => {
  const el = e.target.closest('[data-act]');
- if (el && actions[el.dataset.act]) { if (el.tagName==='BUTTON' || el.tagName==='A') e.preventDefault(); actions[el.dataset.act](el, e); }
+ const act = el && own(actions, el.dataset.act);
+ if (act) { if (el.tagName==='BUTTON' || el.tagName==='A') e.preventDefault(); act(el, e); }
 });
 document.addEventListener('submit', e => {
  const f = e.target.closest('form[data-form]'); if (!f) return;
  e.preventDefault();
- forms[f.dataset.form]?.(new FormData(f), f, e.submitter);
+ own(forms, f.dataset.form)?.(new FormData(f), f, e.submitter);
 });
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
 
 // ---------- router ----------
 function route() {
- const raw = location.hash.replace(/^#\/?/,'') || (S.consent ? 'home' : 'onboarding');
- const [path, qs=''] = raw.split('?');
- const params = new URLSearchParams(qs);
- const [name, a, b] = path.split('/').map(decodeURIComponent);
- const screen = screens[name] || screens.home;
- const html = screen(a, params, b);
- renderChrome(screens[name] ? path : 'home');
+ const {name, args:[a, b], params, path} = parseHash(location.hash, S.consent ? 'home' : 'onboarding');
+ const screen = own(screens, name);
+ const html = (screen || screens.home)(a, params, b);
+ renderChrome(screen ? path : 'home');
  $('#main').innerHTML = html;
  hydrate();
  document.title = `어푸 데모 · ${$('#main h1')?.textContent || '홈'}`;

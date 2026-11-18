@@ -107,3 +107,59 @@ test('식품안전나라 실제 견본 응답(C002)을 파싱하고 복합원재
  assert.deepEqual(findCompositeIngredients(rows[2].rawMaterials), ['효소식품', '곡류가공품']);
  assert.deepEqual(findAllergenMentions(rows[2].rawMaterials, ['밀', '우유', '대두']), []);
 });
+
+test('리뷰에서 놓친 원재료 표현을 찾는다(난류·우유·게·돼지고기·조개류·쇠고기·영문)', () => {
+ const parts = (raw, a) => findAllergenMentions(raw, a).map(h => h.part);
+ assert.deepEqual(parts('노른자, 흰자, 마요네즈', ['난류']), ['노른자', '흰자', '마요네즈']);
+ assert.deepEqual(parts('탈지유, 유지방, 유고형분, 조제유', ['우유']), ['탈지유', '유지방', '유고형분', '조제유']);
+ assert.deepEqual(parts('크랩', ['게']), ['크랩']);
+ assert.deepEqual(parts('햄, 베이컨', ['돼지고기']), ['햄', '베이컨']);
+ assert.deepEqual(parts('꼬막, 재첩, 대합', ['조개류']), ['꼬막', '재첩', '대합']);
+ assert.deepEqual(parts('사골육수', ['쇠고기']), ['사골육수']);
+ assert.deepEqual(parts('Wheat flour, Milk, Soybean oil', ['밀', '우유', '대두']), ['Wheat flour', 'Milk', 'Soybean oil']);
+});
+
+test('영문·한글 오탐 예외: graham, eggplant, champignon, 햄프, 밀감', () => {
+ assert.deepEqual(findAllergenMentions('graham crackers, eggplant, champignon, 햄프씨드, 밀감', ['돼지고기', '난류', '밀']), []);
+});
+
+test('기타 알레르기 단어가 객체 내장 이름이어도 오류 없이 동작한다', () => {
+ assert.deepEqual(findAllergenMentions('constructor 추출물, toString', [], ['constructor', 'toString', '__proto__']).map(h => h.allergen), ['constructor', 'toString']);
+ assert.deepEqual(findAllergenMentions('키위퓨레', ['constructor', '__proto__'], ['키위']).map(h => h.allergen), ['키위']);
+});
+
+test('복합원재료를 이름 뒤에 다른 글자가 붙어도 감지한다', () => {
+ assert.deepEqual(findCompositeIngredients('기타가공품 10%, 시즈닝분말, 소스류, 효소식품, 혼합분말, 정제수, 쌀'), ['기타가공품 10%', '시즈닝분말', '소스류', '효소식품', '혼합분말']);
+});
+
+test('식품안전나라 주소는 HTTPS만 허용하고, 잘못된 키는 해당 경로만 막는다', async () => {
+ assert.throws(() => new MfdsMaterialsClient({apiKey: 'KEY', baseUrl: 'http://openapi.foodsafetykorea.go.kr'}), /https/);
+ const {createLookupProviders} = await import('../src/providers/lookup.js');
+ const p = createLookupProviders({MFDS_API_KEY: 'bad key!'});
+ assert.equal(p.materials.kind, 'misconfigured'); assert.equal(p.coupang.kind, 'mock');
+ await assert.rejects(p.materials.searchByName('쌀과자', 5), e => /설정이 올바르지 않습니다/.test(e.message) && !e.message.includes('bad key'));
+ assert.equal(createLookupProviders({MFDS_API_KEY: 'KEY', MFDS_BASE_URL: 'http://x.example'}).materials.kind, 'misconfigured');
+});
+
+test('검색 API: 호출 제한(429), 검색어를 만들 수 없는 상품명(422)', async () => {
+ const {createRateLimiter} = await import('../src/rate-limit.js');
+ const app = createApp({limiter: createRateLimiter({perClient: 2, total: 100})});
+ await new Promise(r => app.listen(0, '127.0.0.1', r));
+ const base = `http://127.0.0.1:${app.address().port}`;
+ try {
+  const empty = await fetch(base + '/api/materials/search?q=' + encodeURIComponent('(특가) [무료배송]'));
+  assert.equal(empty.status, 422); assert.match((await empty.json()).error, /검색어를 만들지 못해/);
+  assert.equal((await fetch(base + '/api/coupang/search?q=a')).status, 200);
+  const limited = await fetch(base + '/api/coupang/search?q=b');
+  assert.equal(limited.status, 429); assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+  assert.equal((await fetch(base + '/api/lookup/status')).status, 200);
+ } finally { await new Promise(r => app.close(r)); }
+});
+
+test('호출 제한: 구간이 지나면 다시 허용, 전체 한도도 적용', async () => {
+ const {createRateLimiter} = await import('../src/rate-limit.js');
+ let t = 0; const check = createRateLimiter({perClient: 1, total: 2, windowMs: 1000, now: () => t});
+ assert.equal(check('a').ok, true); assert.equal(check('a').ok, false);
+ assert.equal(check('b').ok, true); assert.equal(check('c').ok, false);
+ t = 1000; assert.equal(check('a').ok, true);
+});

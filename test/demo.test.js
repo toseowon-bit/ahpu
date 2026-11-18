@@ -16,3 +16,15 @@ test('데모 화면은 CSP에 막히는 인라인 스크립트·스타일을 쓰
  assert.doesNotMatch(html,/<script(?![^>]*\bsrc=)[^>]*>/);assert.doesNotMatch(html,/<style|\sstyle=/);
  assert.doesNotMatch(await (await fetch(base+'/demo.js')).text(),/\sstyle=/);
 });
+
+test('demo.js가 import하는 모듈은 서버 허용 목록과 정적 빌드에 모두 포함된다', async () => {
+ const {readFileSync} = await import('node:fs');
+ const {assets} = await import('../src/server.js');
+ const {STATIC_FILES} = await import('../scripts/build-demo-static.js');
+ const imports = [...readFileSync(new URL('../public/demo.js', import.meta.url), 'utf8').matchAll(/from '\.\/([\w.-]+\.js)'/g)].map(m => m[1]);
+ assert.ok(imports.length >= 2);
+ for (const f of ['demo.js', 'demo.css', ...imports]) {
+  assert.ok(assets['/' + f], `server allow-list missing ${f}`);
+  assert.ok(STATIC_FILES.includes(f), `static build missing ${f}`);
+ }
+});
