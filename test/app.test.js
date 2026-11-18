@@ -22,7 +22,7 @@ test('보호자 앱(/)은 모바일 뷰포트와 하단 탭바를 갖고, CSP에
 test('app.js가 import하는 모듈은 서버 허용 목록에 있다', () => {
  const src = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
  const imports = [...src.matchAll(/from '\.\/([\w.-]+\.js)'/g)].map(m => m[1]);
- assert.deepEqual(imports.sort(), ['catalog.js', 'route.js']);
+ assert.deepEqual(imports.sort(), ['allergen-keywords.js', 'catalog.js', 'route.js']);
  for (const f of ['app.js', 'styles.css', ...imports]) assert.ok(assets['/' + f], f);
 });
 

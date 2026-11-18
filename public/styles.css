@@ -160,6 +160,15 @@ a.pitem:active{background:#f3f6f1}
 .empty{text-align:center;padding:30px 16px;color:var(--muted)}
 .empty .seal{width:64px;height:64px;margin-bottom:6px}
 
+/* ---------- 실제 쿠팡 검색 (베타) ---------- */
+.live-entry{display:grid;gap:4px;text-decoration:none;color:inherit;margin-top:16px;border-style:dashed}
+.live-entry .badge{justify-self:start}
+.thumb img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.thumb{overflow:hidden}
+mark{background:var(--coral-l);color:var(--coral-ink);padding:0 2px;border-radius:3px;font-weight:650}
+.raw{background:#f4f6f1;border-radius:10px;padding:10px 12px}
+.labels .btn{flex-shrink:0}
+
 /* ---------- 시작 화면 (동의 전에는 메뉴를 숨긴다) ---------- */
 body[data-screen=welcome]{padding-bottom:var(--safe-b)}
 body[data-screen=welcome] .tabbar,body[data-screen=welcome] .topnav{display:none}

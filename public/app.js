@@ -4,6 +4,7 @@
 import {DATA_DATE, ALLERGENS, CATEGORIES, ICONS, BUNDLES, RECALLS, productById, recallOf, STATUS,
  compareChild, overallStatus, alternativesFor, parseLookup, searchProducts} from './catalog.js';
 import {own, parseHash} from './route.js';
+import {findAllergenMentions, findCompositeIngredients} from './allergen-keywords.js';
 
 const STORE_KEY = 'ahpu-app-v1';
 const MAX_CHILDREN = 6;
@@ -56,7 +57,7 @@ function productItem(p, extra = '') {
 // ---------- 화면 ----------
 const screens = {};
 const TAB_OF = {home:'home', search:'search', product:'search', candidates:'search', unregistered:'search', alternatives:'search',
- favorites:'favorites', recalls:'recalls', kids:'kids', 'kid-new':'kids', 'kid-edit':'kids'};
+ favorites:'favorites', recalls:'recalls', kids:'kids', 'kid-new':'kids', 'kid-edit':'kids', live:'search'};
 
 screens.welcome = () => `<div class="welcome card">${seal()}<h1>우리 아이 기준으로<br>식품을 확인해요</h1>
  <ul><li><strong>어푸는 알레르기를 진단하지 않아요.</strong> 의사 진단을 받았거나 식이 제한 중인 0~6세 자녀의 보호자를 위한 앱이에요.</li>
@@ -96,6 +97,7 @@ screens.search = (_, params) => {
  <p class="meta" role="status">${items.length}개 제품${S.children.length ? ' · 우리 아이 기준 상태 표시' : ''}</p>
  ${items.length ? `<ul class="plist">${items.map(p => productItem(p)).join('')}</ul>`
   : `<div class="card empty">${seal()}<h3>검색 결과가 없어요</h3><p>어푸 데이터에 아직 없는 제품일 수 있어요.</p><a class="btn" href="#/unregistered?name=${encodeURIComponent(q)}">이럴 땐 이렇게 확인해요</a></div>`}
+ <a class="card live-entry" href="#/live${q ? '?' + new URLSearchParams({q:q.slice(0,50)}) : ''}"><span class="badge s-info">베타</span><strong>실제 쿠팡 상품에서 찾기</strong><span class="meta">쿠팡 상품을 찾아 식품안전나라 원재료명과 아이 알레르기 항목을 비교해요</span></a>
  <p class="hint">데이터 기준일 ${DATA_DATE}. 목록에 없는 제품은 대조할 수 없어요.</p></div>`;
 };
 
@@ -190,6 +192,91 @@ screens['kid-edit'] = id => {
  return c ? `<div class="page"><div class="crumb"><a href="#/kids">‹ 우리 아이</a></div><h1>${esc(c.alias)} 정보 수정</h1>${kidForm(c, 'kid-edit')}</div>` : screens.kids();
 };
 
+
+// ---------- 실제 쿠팡 검색 (베타) — 서버 API 필요. 자녀 정보는 서버로 보내지 않고 이 브라우저에서만 비교한다 ----------
+const LIVE_KEY = 'ahpu-app-live-v1';
+const LIVE = {items:new Map(), candidates:new Map()};
+try { for (const it of JSON.parse(sessionStorage.getItem(LIVE_KEY) || '[]')) if (it && typeof it.productId === 'string') LIVE.items.set(it.productId, it); } catch { /* 저장 불가 */ }
+const saveLive = () => { try { sessionStorage.setItem(LIVE_KEY, JSON.stringify([...LIVE.items.values()].slice(-30))); } catch { /* 저장 불가 */ } };
+const won = n => typeof n === 'number' ? n.toLocaleString('ko-KR') + '원' : '';
+const httpsUrl = u => typeof u === 'string' && /^https:\/\//i.test(u) ? u : '';
+const sourceBadge = src => src === 'live' ? '<span class="badge s-none">실제 데이터</span>' : '<span class="badge s-may">모의 데이터 · 키 연결 전</span>';
+async function api(path) {
+ let res;
+ try { res = await fetch(path, {headers:{Accept:'application/json'}}); } catch { throw new Error('서버에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); }
+ if (!(res.headers.get('content-type') || '').includes('application/json')) throw new Error('이 주소에서는 실제 검색을 쓸 수 없어요(서버 API가 없는 배포).');
+ const data = await res.json();
+ if (!res.ok) throw new Error(data.error || '요청에 실패했어요.');
+ return data;
+}
+const liveNotice = '<div class="card warn small"><strong>베타 · 실제 데이터 연동 시험 중</strong><br>쿠팡 상품과 식품안전나라 원재료 보고 자료를 이어 보여줘요. 원재료명에서 단어를 찾는 것이며 <strong>알레르기 표시나 혼입 가능성 판정이 아니에요.</strong> 반드시 실제 포장지를 확인하세요.</div>';
+const liveThumb = it => httpsUrl(it.image) ? `<div class="thumb"><img src="${esc(it.image)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : '<div class="thumb" aria-hidden="true">🛒</div>';
+
+screens.live = (pid, params) => {
+ if (pid) return liveItem(pid);
+ const q = params.get('q') || '';
+ return `<div class="page"><div class="crumb"><a href="#/search">‹ 검색</a></div><h1>실제 쿠팡 검색 <span class="badge s-info">베타</span></h1>${liveNotice}
+ <form data-form="live-search" class="searchbox" role="search"><input type="search" name="q" value="${esc(q)}" required maxlength="50" enterkeyhint="search" autocomplete="off" placeholder="예: 쌀과자, 아기 치즈" aria-label="쿠팡 상품 검색"><button class="btn">검색</button></form>
+ ${q ? `<div id="live-results" class="mt" data-load="live-search" data-q="${esc(q)}" aria-live="polite"><p class="muted">불러오는 중…</p></div>` : '<p class="hint mt">검색어를 입력하면 쿠팡 파트너스 API로 상품을 찾아요.</p>'}</div>`;
+};
+function liveItem(pid) {
+ const it = LIVE.items.get(pid);
+ if (!it) return `<div class="page"><div class="card"><h2>상품 정보를 다시 불러와 주세요</h2><p>검색 결과가 지워졌어요. 다시 검색해서 상품을 골라 주세요.</p><a class="btn block" href="#/live">실제 쿠팡 검색</a></div></div>`;
+ const url = httpsUrl(it.url);
+ return `<div class="page"><div class="crumb"><a href="#/live">‹ 실제 쿠팡 검색</a></div>
+ <div class="product-head">${liveThumb(it)}<div><h1>${esc(it.name)}</h1><p class="meta">${esc(it.category || '')}${it.price != null ? ' · ' + won(it.price) : ''}${it.isRocket ? ' · 로켓배송' : ''}</p>${sourceBadge(it.source)}</div></div>
+ ${liveNotice}
+ <section class="card"><h2>1. 같은 제품 고르기</h2><p class="small muted">이름이 서로 달라 자동으로 연결하지 않아요. 제품명·제조사를 보고 같은 제품을 골라 주세요.</p><div id="live-materials" data-load="live-materials" data-pid="${esc(pid)}" aria-live="polite"><p class="muted">식품안전나라 원재료 자료를 찾는 중…</p></div></section>
+ <section class="card" id="live-analysis"><h2>2. 아이 기준 원재료 확인</h2><p class="muted mb0">위에서 제품을 고르면 여기에 표시돼요.</p></section>
+ <section class="card">${url ? `<a class="btn block" href="${esc(url)}" target="_blank" rel="noopener noreferrer sponsored">쿠팡에서 보기 ↗</a>` : '<button class="btn block" disabled>모의 데이터라 구매 링크가 없어요</button>'}<p class="hint mb0">${esc(it.disclosure || '')}</p></section></div>`;
+}
+const loaders = {
+ 'live-search': async el => {
+  const data = await api('/api/coupang/search?q=' + encodeURIComponent(el.dataset.q));
+  for (const it of data.items) LIVE.items.set(String(it.productId), {...it, productId:String(it.productId), source:data.meta.source, disclosure:data.meta.disclosure});
+  saveLive();
+  return `<p class="meta">${data.items.length}개 ${sourceBadge(data.meta.source)}</p>` + (data.items.length
+   ? `<ul class="plist">${data.items.map(it => `<li><a class="pitem" href="#/live/${encodeURIComponent(it.productId)}">${liveThumb(it)}<div class="body"><strong>${esc(it.name)}</strong><div class="meta">${esc(it.category || '')}${it.price != null ? ' · ' + won(it.price) : ''}</div></div><span class="chev" aria-hidden="true">›</span></a></li>`).join('')}</ul><p class="hint">${esc(data.meta.disclosure)}</p>`
+   : `<div class="card empty">${seal()}<h3>검색 결과가 없어요</h3></div>`);
+ },
+ 'live-materials': async el => {
+  const it = LIVE.items.get(el.dataset.pid);
+  const data = await api('/api/materials/search?q=' + encodeURIComponent(it.name));
+  LIVE.candidates.set(el.dataset.pid, data.items);
+  const head = `<p class="meta">검색어 ‘${esc(data.meta.searchTerm)}’ · 식품안전나라 품목제조보고(원재료) ${sourceBadge(data.meta.source)}</p>`;
+  if (!data.items.length) return head + '<div class="card soft mb0"><span class="badge s-info">정보 부족</span><p class="mt mb0">같은 이름의 원재료 자료를 찾지 못해 <strong>대조할 수 없어요.</strong> 포장지의 원재료명과 알레르기 표시를 직접 확인해 주세요.</p></div>';
+  return head + `<ul class="labels">${data.items.map((m, i) => `<li><div><strong>${esc(m.name)}</strong><div class="meta">${esc(m.maker || '제조사 정보 없음')} · ${esc(m.foodType || '유형 정보 없음')} · 변경일 ${esc(m.changedAt || m.reportedAt || '—')}</div></div><button type="button" class="btn ghost sm" data-act="pick-material" data-pid="${esc(el.dataset.pid)}" data-i="${i}">이 제품이 맞아요</button></li>`).join('')}</ul>`;
+ }
+};
+async function hydrate() {
+ for (const el of document.querySelectorAll('[data-load]')) {
+  const fn = own(loaders, el.dataset.load); el.removeAttribute('data-load');
+  if (!fn) continue;
+  try { const html = await fn(el); if (el.isConnected) el.innerHTML = html; }
+  catch (err) { if (el.isConnected) el.innerHTML = `<div class="card warn small mb0">${esc(err.message)}</div>`; }
+ }
+}
+function analysisHtml(m) {
+ const text = String(m.rawMaterials || '');
+ const composites = findCompositeIngredients(text);
+ const words = [...new Set(S.children.flatMap(c => findAllergenMentions(text, c.allergens, c.custom)).map(x => x.word))].sort((a, b) => b.length - a.length);
+ // 원문에서 일치 위치를 찾은 뒤 조각마다 escape한다(escape한 HTML 안에서 찾으면 엔티티가 깨질 수 있음).
+ let raw = '', last = 0;
+ if (words.length) for (const hit of text.matchAll(new RegExp(words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'giu'))) { raw += esc(text.slice(last, hit.index)) + `<mark>${esc(hit[0])}</mark>`; last = hit.index + hit[0].length; }
+ raw += esc(text.slice(last));
+ const card = (c, cls, label, body) => `<div class="child-card st-${cls}"><div class="avatar" aria-hidden="true">${esc(c.alias[0])}</div><div><div class="row"><strong>${esc(c.alias)}</strong><span class="badge s-${cls}">${label}</span></div><p class="small mb0">${body}</p></div></div>`;
+ const cards = S.children.length ? S.children.map(c => {
+  const hits = findAllergenMentions(text, c.allergens, c.custom);
+  if (hits.length) return card(c, 'match', '원재료명에서 발견', hits.map(h => `${esc(h.allergen)}: ‘${esc(h.part)}’`).join(' · '));
+  if (composites.length) return card(c, 'may', '원재료 정보 불완전', `원재료명에서 찾지 못했지만 하위 성분이 공개되지 않은 복합원재료(${composites.map(esc).join(', ')})가 있어 대조할 수 없어요. 포장지 알레르기 표시를 꼭 확인하세요.`);
+  return card(c, 'info', '원재료명에서 찾지 못함', '찾지 못했다고 들어 있지 않다는 뜻은 아니에요. 알레르기 표시와 혼입 가능성 문구는 포장지에서 확인하세요.');
+ }).join('') : '<p class="muted mb0">등록된 자녀가 없어 비교하지 않았어요.</p><a class="btn block mt" href="#/kid-new">자녀 등록하기</a>';
+ return `<h2>2. 아이 기준 원재료 확인</h2><div class="stack">${cards}</div>
+ <dl class="kv mt"><dt>선택한 제품</dt><dd>${esc(m.name)} (${esc(m.maker || '제조사 정보 없음')})</dd><dt>품목제조번호</dt><dd>${esc(m.reportNo || '—')}</dd><dt>최종 변경일</dt><dd>${esc(m.changedAt || m.reportedAt || '—')}</dd></dl>
+ <h3 class="mt">원재료명</h3><p class="raw small">${raw}</p>
+ <p class="disclaimer">출처: 식품안전나라 품목제조보고(원재료). 제조사가 보고한 원재료이며 지금 판매 중인 포장과 다를 수 있고, 복합원재료의 하위 성분이나 혼입 가능성 정보는 들어 있지 않아요. 자녀 정보는 이 브라우저 안에서만 비교했어요.</p>`;
+}
+
 // ---------- 대화상자 ----------
 let pending = null;
 function confirmDialog(title, text, label, fn) {
@@ -217,8 +304,12 @@ const actions = {
    S.children = S.children.filter(x => x.id !== c.id); save(); toast('삭제했어요'); route();
   });
  },
+ 'pick-material': el => {
+  const m = (LIVE.candidates.get(el.dataset.pid) || [])[Number(el.dataset.i)]; if (!m) return;
+  const box = $('#live-analysis'); box.innerHTML = analysisHtml(m); box.scrollIntoView({block:'start'}); box.querySelector('h2')?.setAttribute('tabindex', '-1'); box.querySelector('h2')?.focus({preventScroll:true});
+ },
  wipe: () => confirmDialog('모든 데이터 지우기', '자녀 정보, 관심 제품, 최근 확인 기록과 동의 내역을 이 기기에서 모두 지워요. 되돌릴 수 없어요.', '모두 지우기', () => {
-  S = blank(); try { localStorage.removeItem(STORE_KEY); } catch { /* 저장 불가 환경 */ }
+  S = blank(); LIVE.items.clear(); try { localStorage.removeItem(STORE_KEY); sessionStorage.removeItem(LIVE_KEY); } catch { /* 저장 불가 환경 */ }
   toast('모두 지웠어요'); go('/welcome');
  })
 };
@@ -250,7 +341,8 @@ const forms = {
   if (r.kind === 'not-coupang') return toast('쿠팡 상품 링크만 지원해요. 제품명으로 검색해 보세요.');
   go('/search?fail=1');
  },
- search: fd => go('/search?' + new URLSearchParams([...fd].filter(([, v]) => v)))
+ search: fd => go('/search?' + new URLSearchParams([...fd].filter(([, v]) => v))),
+ 'live-search': fd => { const q = String(fd.get('q') || '').trim().slice(0, 50); if (q) go('/live?' + new URLSearchParams({q})); }
 };
 
 document.addEventListener('click', e => {
@@ -276,6 +368,7 @@ function route() {
   if (n.dataset.tab === tab) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
  }
  document.body.dataset.screen = key;
+ hydrate();
  document.title = `${$('#main h1')?.textContent || '홈'} · 어푸`;
 }
 let lastPath = location.hash.split('?')[0];
