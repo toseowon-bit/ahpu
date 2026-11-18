@@ -5,18 +5,21 @@
 // HTTPS 지원 여부와 해외(Vercel) 서버에서의 접근 가능 여부를 실제 키로 확인해야 한다.
 // 인증키가 URL 경로에 들어가므로 오류·로그에 URL을 남기지 않는다.
 
-export const MFDS_BASE = process.env.MFDS_BASE_URL || 'https://openapi.foodsafetykorea.go.kr';
+export const MFDS_BASE = 'https://openapi.foodsafetykorea.go.kr';
 
 export class MfdsMaterialsClient {
- constructor({apiKey, fetchImpl = fetch, timeoutMs = 8000} = {}) {
+ constructor({apiKey, baseUrl, fetchImpl = fetch, timeoutMs = 8000} = {}) {
   if (!apiKey || !/^[A-Za-z0-9_-]+$/.test(apiKey)) throw new Error('유효한 MFDS_API_KEY가 필요합니다.');
-  Object.assign(this, {apiKey, fetchImpl, timeoutMs, kind: 'live'});
+  // 인증키가 URL 경로에 들어가므로 HTTPS 주소만 허용한다(HTTP로 바꾸면 키가 암호화 없이 전송됨).
+  const base = String(baseUrl || MFDS_BASE).replace(/\/+$/, '');
+  if (new URL(base).protocol !== 'https:') throw new Error('MFDS_BASE_URL은 https:// 주소여야 합니다.');
+  Object.assign(this, {apiKey, base, fetchImpl, timeoutMs, kind: 'live'});
  }
  async searchByName(name, limit = 10) {
   const term = String(name || '').trim();
   if (!term) return [];
   const end = Math.min(Math.max(limit, 1), 30);
-  const url = `${MFDS_BASE}/api/${this.apiKey}/C002/json/1/${end}/PRDLST_NM=${encodeURIComponent(term)}`;
+  const url = `${this.base}/api/${this.apiKey}/C002/json/1/${end}/PRDLST_NM=${encodeURIComponent(term)}`;
   let payload;
   try {
    const res = await this.fetchImpl(url, {signal: AbortSignal.timeout(this.timeoutMs), redirect: 'error'});

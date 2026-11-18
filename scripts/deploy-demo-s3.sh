@@ -24,7 +24,7 @@ export AWS_REGION AWS_DEFAULT_REGION="$AWS_REGION"
 # AWS 관리형 정책 ID (CloudFront 문서의 고정값)
 CACHE_POLICY_ID="658327ea-f89d-4fab-a63d-7e88639e58f6"      # Managed-CachingOptimized
 HEADERS_POLICY_ID="67f7725c-6f97-4210-82d7-5512b31e9d03"    # Managed-SecurityHeadersPolicy
-OAC_NAME="ahpu-demo-oac-$DEMO_BUCKET"
+OAC_NAME="ahpu-demo-oac-${DEMO_BUCKET:0:50}"   # CloudFront OAC 이름은 최대 64자
 DIST_COMMENT="ahpu-demo:$DEMO_BUCKET"
 ORIGIN_ID="s3-$DEMO_BUCKET"
 
@@ -69,8 +69,11 @@ aws s3api put-public-access-block --bucket "$DEMO_BUCKET" --public-access-block-
 aws s3api delete-bucket-website --bucket "$DEMO_BUCKET" 2>/dev/null || true
 
 step "3/6 Origin Access Control 확인: $OAC_NAME"
+# 목록이 여러 페이지면 CLI가 페이지마다 쿼리를 적용하므로, 모든 일치 항목을 받은 뒤 첫 실제 값을 고른다.
+# (첫 페이지에 없을 때 'None'을 '없음'으로 오해해 중복 생성하지 않도록. awk는 끝까지 읽어 pipefail 중단을 피한다.)
 OAC_ID="$(aws cloudfront list-origin-access-controls \
-  --query "OriginAccessControlList.Items[?Name=='$OAC_NAME'].Id | [0]" --output text)"
+  --query "OriginAccessControlList.Items[?Name=='$OAC_NAME'].Id" --output text \
+  | awk '{for (i = 1; i <= NF; i++) if (!f && $i != "None") {print $i; f = 1}}')"
 if [ -z "$OAC_ID" ] || [ "$OAC_ID" = "None" ]; then
   OAC_ID="$(aws cloudfront create-origin-access-control --origin-access-control-config \
     "Name=$OAC_NAME,Description=ahpu demo bucket access,SigningProtocol=sigv4,SigningBehavior=always,OriginAccessControlOriginType=s3" \
@@ -83,7 +86,8 @@ fi
 step "4/6 CloudFront 배포 확인"
 # 목록 조회 실패를 '배포 없음'으로 오해해 중복 생성하지 않도록, 결과를 먼저 변수에 받는다(실패 시 set -e로 중단).
 DIST_LINE="$(aws cloudfront list-distributions \
-  --query "DistributionList.Items[?Comment=='$DIST_COMMENT'] | [0].[Id,DomainName,ARN]" --output text)"
+  --query "DistributionList.Items[?Comment=='$DIST_COMMENT'].[Id,DomainName,ARN]" --output text \
+  | awk '!f && NF == 3 && $1 != "None" {print; f = 1}')"
 read -r DIST_ID DIST_DOMAIN DIST_ARN <<<"$DIST_LINE"
 NEW_DIST=0
 if [ -z "${DIST_ID:-}" ] || [ "$DIST_ID" = "None" ]; then
@@ -133,19 +137,21 @@ aws s3api put-bucket-policy --bucket "$DEMO_BUCKET" --policy "file://$TMP/policy
 
 step "6/6 데모 빌드 및 업로드"
 node scripts/build-demo-static.js
-# index.html은 갱신이 바로 보이도록 캐시하지 않고, css/js는 짧게 캐시한다.
-aws s3 cp dist/demo-static/index.html "s3://$DEMO_BUCKET/index.html" \
-  --content-type "text/html; charset=utf-8" --cache-control "no-cache"
-aws s3 cp dist/demo-static/demo.css "s3://$DEMO_BUCKET/demo.css" \
-  --content-type "text/css; charset=utf-8" --cache-control "max-age=300"
-aws s3 cp dist/demo-static/demo.js "s3://$DEMO_BUCKET/demo.js" \
-  --content-type "text/javascript; charset=utf-8" --cache-control "max-age=300"
-aws s3 cp dist/demo-static/allergen-keywords.js "s3://$DEMO_BUCKET/allergen-keywords.js" \
-  --content-type "text/javascript; charset=utf-8" --cache-control "max-age=300"
+# 빌드 결과를 모두 올린다. index.html은 갱신이 바로 보이도록 캐시하지 않고, css/js는 짧게 캐시한다.
+for path in dist/demo-static/*; do
+  file="$(basename "$path")"
+  case "$file" in
+    *.html) type="text/html; charset=utf-8"; cache="no-cache" ;;
+    *.css)  type="text/css; charset=utf-8"; cache="max-age=300" ;;
+    *.js)   type="text/javascript; charset=utf-8"; cache="max-age=300" ;;
+    *) fail "알 수 없는 빌드 파일 형식: $file" ;;
+  esac
+  aws s3 cp "$path" "s3://$DEMO_BUCKET/$file" --content-type "$type" --cache-control "$cache"
+done
 if [ "$NEW_DIST" = 0 ]; then
-  # 재배포: 엣지 캐시를 비워 바뀐 파일이 바로 보이게 한다(월 1,000경로까지 무료).
+  # 재배포: 엣지 캐시를 비워 바뀐 파일이 바로 보이게 한다(와일드카드 1개 = 무효화 경로 1개, 월 1,000경로까지 무료).
   aws cloudfront create-invalidation --distribution-id "$DIST_ID" \
-    --paths "/" "/index.html" "/demo.css" "/demo.js" "/allergen-keywords.js" --query Invalidation.Id --output text >/dev/null
+    --paths "/*" --query Invalidation.Id --output text >/dev/null
   echo "캐시 무효화 요청 완료."
 fi
 

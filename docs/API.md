@@ -14,8 +14,12 @@
 
 Product 계약은 `src/model.js`, safety는 `{status:'records-found'|'not-confirmed',events:[],candidates:[],coverage:string}`. 제품 연결된 사건도 LOT/기한 확인이 추가로 필요합니다. provenance.kind=demo, sourceUrl=null, fetchedAt=null은 실제 외부 데이터를 수집하지 않았다는 의미입니다. 예시 등록일은 수집·최종확인 시간이 아닙니다.
 
-오류: 400 검색어 길이, 404 제품/경로 없음, 405 메서드 불허, 500 내부 오류. `{error:string}`을 반환하며 upstream 비밀정보를 포함하지 않습니다. 장애를 빈 배열로 표현하지 않습니다. 현재 관심 제품 API는 없으며 브라우저 저장만 합니다.
+오류: 400 검색어 길이, 404 제품/경로 없음, 405 메서드 불허, 422 상품명에서 검색어를 만들 수 없음, 429 호출 제한, 500 내부 오류, 502 외부 API 실패. `{error:string}`을 반환하며 upstream 비밀정보를 포함하지 않습니다. 장애를 빈 배열로 표현하지 않습니다. 현재 관심 제품 API는 없으며 브라우저 저장만 합니다.
 
 ## 실제 데이터 조회(베타)
 
 키가 있으면 live, 없으면 `[모의]` 데이터로 동작합니다(`COUPANG_ACCESS_KEY`·`COUPANG_SECRET_KEY`, `MFDS_API_KEY`). live 실패는 모의 데이터로 바꾸지 않고 502와 원인 안내를 반환합니다. 두 API의 경로·서명·응답 필드는 실제 키로 아직 검증하지 않았습니다(validated=false). 응답 형식이 예상과 다르면 빈 결과가 아니라 오류가 납니다. 자녀 알레르기 정보는 서버로 보내지 않고 브라우저에서 원재료명과 비교합니다(`public/allergen-keywords.js`).
+
+- 호출 제한: `/api/coupang/search`, `/api/materials/search`는 서버 인스턴스마다 IP당 분당 20회, 전체 분당 200회까지 허용하고 넘으면 429와 `Retry-After`를 반환합니다. 같은 요청은 5분간 캐시합니다. 인스턴스가 여러 개면 따로 세므로 남용 완화 수준입니다.
+- 키 형식이 잘못되면 해당 provider만 `misconfigured`(`/api/lookup/status`에 표시)가 되고 그 경로만 502를 반환합니다. `MFDS_BASE_URL`은 인증키가 URL에 들어가므로 `https://`만 허용합니다.
+- 상품명을 정리한 결과가 비면(예: `(특가) [무료배송]`) 식품안전나라를 조회하지 않고 422를 반환합니다. '찾지 못함'으로 보이지 않게 하기 위해서입니다.
