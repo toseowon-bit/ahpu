@@ -7,7 +7,7 @@ import {createLookupProviders} from './providers/lookup.js';
 import {createRateLimiter, clientKey} from './rate-limit.js';
 import {PARTNERS_DISCLOSURE} from './providers/coupang-partners.js';
 import {productSearchTerm} from '../public/allergen-keywords.js';
-export const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8'],'/allergen-keywords.js':['allergen-keywords.js','text/javascript; charset=utf-8'],'/route.js':['route.js','text/javascript; charset=utf-8']};
+export const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8'],'/allergen-keywords.js':['allergen-keywords.js','text/javascript; charset=utf-8'],'/route.js':['route.js','text/javascript; charset=utf-8'],'/catalog.js':['catalog.js','text/javascript; charset=utf-8']};
 export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo'), lookup = createLookupProviders(), limiter = createRateLimiter()} = {}) {
  return async (req,res)=> {
   res.setHeader('X-Content-Type-Options','nosniff');

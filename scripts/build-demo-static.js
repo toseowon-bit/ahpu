@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 const src = new URL('../public/', import.meta.url);
 const out = new URL('../dist/demo-static/', import.meta.url);
 // index.html 외에 함께 올릴 파일. demo.js가 import하는 모듈도 여기에 있어야 한다(test/demo.test.js가 확인).
-export const STATIC_FILES = ['demo.css', 'demo.js', 'allergen-keywords.js', 'route.js'];
+export const STATIC_FILES = ['demo.css', 'demo.js', 'allergen-keywords.js', 'route.js', 'catalog.js'];
 const csp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; base-uri 'none'; form-action 'self'";
 
 export async function build() {
