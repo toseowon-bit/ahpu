@@ -47,9 +47,21 @@ http://127.0.0.1:3000 접속. 개발 중 자동 재시작은 `npm run dev`, 검�
 데모의 ‘실제 쿠팡 검색’은 쿠팡 파트너스 API로 상품을 찾고, 식품안전나라 품목제조보고(원재료, C002)에서 보호자가 고른 같은 제품의 원재료명을 자녀 알레르기 항목과 비교합니다. 원재료명에서 단어를 찾는 것이며 알레르기 표시·혼입 가능성 판정이 아닙니다.
 
 - 키가 없으면 `[모의]` 데이터로 동작합니다. 키는 `.env` 또는 Vercel 환경 변수에만 넣습니다: `COUPANG_ACCESS_KEY`, `COUPANG_SECRET_KEY`, `MFDS_API_KEY`.
-- 두 API의 경로·서명·응답 필드는 실제 키로 아직 검증하지 않았습니다. 식품안전나라 OpenAPI는 개발 환경에서 HTTPS 연결이 끊겨, HTTPS 지원과 해외(Vercel) 서버 접근 여부 확인이 필요합니다.
+- 두 API의 경로·서명·응답 필드는 실제 키로 아직 검증하지 않았습니다. 식품안전나라 응답 필드는 공개 견본 키로 확인했지만(2026-11-20), 개발 환경에서 HTTPS 연결이 끊긴 적이 있어 HTTPS 지원과 해외(Vercel) 서버 접근 여부는 실제 키로 확인해야 합니다.
 - 서버 API가 필요하므로 S3·CloudFront 정적 배포에서는 이 화면이 안내 문구만 보여 줍니다.
 - 외부 API 호출 한도를 지키기 위해 검색 API에 호출 제한(IP당 분당 20회)과 5분 캐시가 있습니다. 자세한 내용은 [API 명세](docs/API.md)를 보세요.
+
+## 데이터 적재 (Supabase, 선택)
+
+식품안전나라 회수·판매중지(I0490)와 품목제조보고 원재료(C002)를 Supabase 테이블로 옮기는 스크립트가 있습니다. 웹 앱은 아직 이 저장소를 읽지 않으며, 적재 실패가 앱 화면에 영향을 주지 않습니다.
+
+```sh
+node --env-file-if-exists=.env scripts/sync-mfds.js --service=I0490 --dry-run   # 읽기만 확인
+node --env-file-if-exists=.env scripts/sync-mfds.js --service=I0490             # 회수·판매중지 387행 규모
+node --env-file-if-exists=.env scripts/sync-mfds.js --service=C002 --max-pages=10 --delay-ms=200
+```
+
+1,000행 단위로 읽고 `ingestion_checkpoints`에 진행 위치를 남기므로 중간에 끊겨도 이어서 처리합니다. 스키마 적용·환경 변수·확인 쿼리는 [Supabase 설정](docs/SUPABASE_SETUP.md)에 있습니다. `.env`에는 `SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`가 필요하고, 서비스 롤 키는 브라우저·공개 저장소에 넣지 않습니다.
 
 ## AWS(S3 + CloudFront)로 데모 배포
 

@@ -1,55 +1,73 @@
-// 식품안전나라 C002(식품 품목제조보고 원재료) 제품명 검색 클라이언트.
-// 응답 필드는 공개 견본(sample 키) 응답으로 확인했다(2026-11-15, test/fixtures/mfds-c002-sample.json).
-// 제품명 검색 변수(PRDLST_NM=)와 HTTPS 동작은 실제 인증키로 아직 검증하지 않았다(validated:false).
-// 확인 사항: 이 개발 환경에서 openapi.foodsafetykorea.go.kr:443은 TLS 연결이 끊겼다(2026-11-15).
-// HTTPS 지원 여부와 해외(Vercel) 서버에서의 접근 가능 여부를 실제 키로 확인해야 한다.
+// 식품안전나라 C002(식품 품목제조보고 원재료) 클라이언트.
+// 응답 필드는 공개 견본(sample 인증키) 응답으로 확인했다(2026-11-20, test/fixtures/mfds-c002-sample.json).
+// 필드: PRDLST_REPORT_NO, PRDLST_NM, BSSH_NM(I0490의 BSSHNM과 다름), LCNS_NO, PRDLST_DCNM,
+// RAWMTRL_NM, RAWMTRL_ORDNO, PRMS_DT, CHNG_DT, ETQTY_XPORT_PRDLST_YN.
+// 제품명 검색 변수(PRDLST_NM=)는 견본 키로 동작을 확인했지만 실제 발급 인증키로는 아직 검증하지 않았다(validated:false).
 // 인증키가 URL 경로에 들어가므로 오류·로그에 URL을 남기지 않는다.
+import {createHash} from 'node:crypto';
+import {
+ MFDS_BASE, MFDS_MAX_PAGE_SIZE, assertApiKey, assertPageRange, cleanText, fetchServiceJson,
+ normalizeBaseUrl, readServiceResult
+} from './mfds-common.js';
 
-export const MFDS_BASE = 'https://openapi.foodsafetykorea.go.kr';
+export {MFDS_BASE};
 
 export class MfdsMaterialsClient {
  constructor({apiKey, baseUrl, fetchImpl = fetch, timeoutMs = 8000} = {}) {
-  if (!apiKey || !/^[A-Za-z0-9_-]+$/.test(apiKey)) throw new Error('유효한 MFDS_API_KEY가 필요합니다.');
-  // 인증키가 URL 경로에 들어가므로 HTTPS 주소만 허용한다(HTTP로 바꾸면 키가 암호화 없이 전송됨).
-  const base = String(baseUrl || MFDS_BASE).replace(/\/+$/, '');
-  if (new URL(base).protocol !== 'https:') throw new Error('MFDS_BASE_URL은 https:// 주소여야 합니다.');
-  Object.assign(this, {apiKey, base, fetchImpl, timeoutMs, kind: 'live'});
+  assertApiKey(apiKey);
+  Object.assign(this, {apiKey, base: normalizeBaseUrl(baseUrl), fetchImpl, timeoutMs, kind: 'live'});
  }
  async searchByName(name, limit = 10) {
   const term = String(name || '').trim();
   if (!term) return [];
   const end = Math.min(Math.max(limit, 1), 30);
-  const url = `${this.base}/api/${this.apiKey}/C002/json/1/${end}/PRDLST_NM=${encodeURIComponent(term)}`;
-  let payload;
-  try {
-   const res = await this.fetchImpl(url, {signal: AbortSignal.timeout(this.timeoutMs), redirect: 'error'});
-   if (!res.ok) throw new Error('http');
-   payload = await res.json();
-  } catch {
-   throw new Error('식품안전나라 원재료 조회 실패: 인증키·서비스 상태·통신(HTTPS/해외 접근)을 확인하세요.');
-  }
-  return parseC002(payload);
+  const {rows} = await this.#read(1, end, `PRDLST_NM=${encodeURIComponent(term)}`);
+  return rows.map(mapMaterialsRecord);
+ }
+ // 전체 수집용 페이지 읽기. 원문 행을 그대로 돌려준다(매핑은 mapMaterialsRecord).
+ async readPage(start = 1, end = MFDS_MAX_PAGE_SIZE) {
+  assertPageRange(start, end);
+  const {rows, totalCount} = await this.#read(start, end);
+  return {rows, totalCount, fetchedAt: new Date().toISOString(), serviceId: 'C002', validated: false};
+ }
+ async #read(start, end, filter) {
+  const suffix = filter ? `/${filter}` : '';
+  const url = `${this.base}/api/${this.apiKey}/C002/json/${start}/${end}${suffix}`;
+  const payload = await fetchServiceJson({
+   fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, url,
+   failureMessage: '식품안전나라 원재료 조회 실패: 인증키·서비스 상태·통신(HTTPS/해외 접근)을 확인하세요.'
+  });
+  return readServiceResult(payload?.C002, {serviceId: 'C002', requiredRows: false});
  }
 }
 
 export function parseC002(payload) {
- const data = payload?.C002;
- const code = data?.RESULT?.CODE;
- if (code === 'INFO-200') return []; // 해당하는 데이터 없음(식품안전나라 공통 코드)
- if (!data || code !== 'INFO-000' || !Array.isArray(data.row)) throw new Error('식품안전나라 C002 응답 형식이 예상과 다릅니다.');
- return data.row.map(r => {
-  if (typeof r?.PRDLST_NM !== 'string' || typeof r?.RAWMTRL_NM !== 'string') throw new Error('식품안전나라 C002 항목 형식이 예상과 다릅니다.');
-  return {
-   reportNo: r.PRDLST_REPORT_NO ? String(r.PRDLST_REPORT_NO) : null,
-   name: r.PRDLST_NM,
-   maker: typeof r.BSSH_NM === 'string' ? r.BSSH_NM : null,
-   rawMaterials: r.RAWMTRL_NM,
-   reportedAt: typeof r.PRMS_DT === 'string' ? r.PRMS_DT : null,
-   changedAt: typeof r.CHNG_DT === 'string' ? r.CHNG_DT : null,
-   licenseNo: r.LCNS_NO ? String(r.LCNS_NO) : null,
-   foodType: typeof r.PRDLST_DCNM === 'string' ? r.PRDLST_DCNM : null
-  };
- });
+ const {rows} = readServiceResult(payload?.C002, {serviceId: 'C002', requiredRows: false});
+ return rows.map(mapMaterialsRecord);
+}
+
+// 품목제조보고 한 건을 제품 카탈로그 행으로 옮긴다. 원문 날짜(YYYYMMDD)와 표시 문자열을 그대로 둔다.
+// 웹 API(`/api/materials/search`) 응답 형태를 바꾸지 않기 위해 여기서는 기존 8개 항목만 돌려준다.
+export function mapMaterialsRecord(r) {
+ if (typeof r?.PRDLST_NM !== 'string' || typeof r?.RAWMTRL_NM !== 'string') throw new Error('식품안전나라 C002 항목 형식이 예상과 다릅니다.');
+ return {
+  reportNo: cleanText(r.PRDLST_REPORT_NO),
+  name: r.PRDLST_NM,
+  maker: cleanText(r.BSSH_NM),
+  rawMaterials: r.RAWMTRL_NM,
+  reportedAt: cleanText(r.PRMS_DT),
+  changedAt: cleanText(r.CHNG_DT),
+  licenseNo: cleanText(r.LCNS_NO),
+  foodType: cleanText(r.PRDLST_DCNM)
+ };
+}
+
+// 제품명이 같은 보고가 여러 건일 수 있으므로 식별번호를 기록 키로 쓴다. 없으면 원문으로 만든 키를 쓴다.
+export function materialsRecordKey(r) {
+ const reportNo = cleanText(r?.PRDLST_REPORT_NO);
+ if (reportNo) return reportNo;
+ const canonical = JSON.stringify(Object.keys(r || {}).sort().map(k => [k, r[k]]));
+ return `sha256:${createHash('sha256').update(canonical).digest('hex').slice(0, 32)}`;
 }
 
 // 인증키가 없을 때 쓰는 모의 원재료. 실제 제품·업체가 아니다.

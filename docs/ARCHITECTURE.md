@@ -2,7 +2,7 @@
 
 ## 경계
 
-브라우저 → 로컬 HTTP API → provider 계약(search/getProduct/listEvents) → 가상 fixture. MfdsClient는 별도의 검증용 전송 계층이며 provider에 아직 연결하지 않았습니다. 외부 의존성 없이 Node.js 내장 HTTP 서버와 ES modules, JSDoc 데이터 계약을 사용합니다. 검증된 실데이터로 전환하려면 별도의 live provider와 제품 카탈로그가 필요합니다.
+브라우저 → 로컬 HTTP API → provider 계약(search/getProduct/listEvents) → 가상 fixture. MfdsClient는 별도의 검증용 전송 계층이며 provider에 연결하지 않았습니다. 대신 수집 스크립트(`scripts/sync-mfds.js`)가 식약처 원문을 Supabase 테이블(`products`, `safety_events`, `ingestion_checkpoints`)로 옮깁니다. 외부 의존성 없이 Node.js 내장 HTTP 서버와 ES modules, JSDoc 데이터 계약을 사용하며, Supabase 연동도 내장 `fetch`로 PostgREST를 직접 호출합니다. 검증된 실데이터로 전환하려면 live provider와 제품 카탈로그가 필요합니다.
 
 ## 데이터 모델
 
@@ -15,6 +15,18 @@
 | ProductEventLink | 현재 함수 계산; 후속 DB에는 productId/eventId/match/evidence/reviewedAt 저장 |
 | Watchlist | 현재 로컬 id 배열; 후속에는 userId/productId/createdAt, 사용자별 접근 제어 |
 | AlertDelivery | 미구현; userId/eventId/channel/status/sentAt/idempotencyKey |
+
+## 영속 저장(Supabase)
+
+`supabase/migrations/001_initial_schema.sql`에 같은 모델을 테이블로 옮겨 두었습니다. 핵심 규칙은 그대로입니다.
+
+- `(source, source_record_id)` 유일 제약으로 같은 원문을 다시 적재해도 늘어나지 않습니다(I0490 `RTRVLDSUSE_SEQ`, C002 `PRDLST_REPORT_NO`).
+- 식별번호는 `text`. 날짜·기한은 원문을 `_text`/`_on` 컬럼에 그대로 둡니다.
+- `products.label_status` 기본값은 `unknown`이며, 데이터가 없다는 것과 무함유를 구분합니다.
+- `ingestion_checkpoints.next_start`는 아직 저장하지 못한 첫 행이라, 실패한 페이지만 다시 읽습니다.
+- 모든 테이블은 RLS를 켜고 정책을 두지 않습니다. 서버(service_role)만 접근합니다.
+
+설정과 실행 방법은 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)를 보세요.
 
 식별번호는 숫자 변환하지 않는 문자열입니다. 제조업체명은 안정적인 업체 식별자를 대체하지 않습니다. 같은 이름이라도 업체가 다른 제품은 분리합니다. 품목번호와 업체 인허가번호가 모두 일치할 때만 제품에 사건을 연결합니다. 둘 중 하나라도 충돌하면 연결하지 않습니다. 식별번호가 부족하고 정규화한 제품명·업체명이 같은 경우는 후보입니다. 식별번호의 일치는 제품 연결이며 특정 LOT의 실제 회수대상 여부는 별도로 확인합니다. 유사도 점수만으로 회수 경보를 발송하지 않습니다.
 
