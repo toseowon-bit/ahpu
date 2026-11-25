@@ -12,6 +12,15 @@
   },
   "rewrites": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "landing.ahpu.kr" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/landing",
+      "destination": "/landing.html"
+    },
+    {
       "source": "/demo",
       "destination": "/demo.html"
     },
@@ -34,7 +43,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         }
       ]
     }
