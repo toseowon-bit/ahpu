@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="어푸 — 우리 아이 기준으로 식품 표시와 회수·판매중지 정보를 확인하는 보호자용 서비스.">
+<meta property="og:title" content="어푸 · AHPU">
+<meta property="og:description" content="자녀 알레르기 기준으로 식품을 다시 봅니다.">
+<meta property="og:type" content="website">
+<title>어푸 · 우리 아이 기준으로, 식품을 다시 봅니다</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/noto-sans-kr-900.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/landing.css">
+<script type="module" src="/landing.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+
+<header class="site-nav" data-nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="/landing" aria-label="어푸 홈">
+      <img class="nav-mark" src="/ahpu-mark.svg" alt="" width="28" height="28">
+      <span class="nav-wordmark">어푸</span>
+    </a>
+    <nav class="nav-links" aria-label="주요 메뉴">
+      <a href="#profile">아이 프로필</a>
+      <a href="#check">제품 확인</a>
+      <a href="#recall">회수 정보</a>
+      <a href="#promise">약속</a>
+    </nav>
+    <a class="nav-cta" href="/">앱 열기</a>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-panel">
+      <div class="hero-copy">
+        <p class="hero-eyebrow" data-reveal>보호자를 위한 식품 확인</p>
+        <h1 class="hero-title" id="hero-title" data-reveal data-reveal-delay="1">
+          우리 아이 기준으로,<br>식품을 다시 봅니다.
+        </h1>
+        <p class="hero-lead" data-reveal data-reveal-delay="2">
+          알레르기 표시와 회수·판매중지 정보를<br class="br-wide">
+          자녀 프로필에 맞춰 한곳에서 확인하세요.
+        </p>
+        <div class="hero-cta" data-reveal data-reveal-delay="3">
+          <a class="btn btn-white" href="/">앱 둘러보기</a>
+          <a class="btn btn-glass" href="/demo">데모 보기</a>
+        </div>
+      </div>
+      <div class="hero-device" aria-hidden="true" data-reveal data-reveal-delay="2">
+        <div class="phone phone-hero">
+          <div class="phone-screen">
+            <div class="ui-top">
+              <img src="/ahpu-mark.svg" alt="" width="22" height="22">
+              <span>어푸</span>
+            </div>
+            <p class="ui-hello">민지(6세)의 기준으로<br>확인했어요</p>
+            <div class="ui-card ui-card-safe">
+              <span class="ui-pill ui-pill-ok">표시 확인</span>
+              <strong>가상 쌀과자</strong>
+              <small>등록한 알레르기 항목이 표시에 없어요</small>
+            </div>
+            <div class="ui-card ui-card-warn">
+              <span class="ui-pill ui-pill-warn">주의 항목</span>
+              <strong>가상 고소한 쿠키</strong>
+              <small>땅콩 · 우유 포함 표시</small>
+            </div>
+            <div class="ui-card">
+              <span class="ui-pill ui-pill-alert">회수 이력</span>
+              <strong>가상 딸기 젤리</strong>
+              <small>가상 회수 사례 1건</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-white band-statement" aria-labelledby="statement-title">
+    <div class="inner inner-center">
+      <h2 id="statement-title" class="mega" data-scroll-reveal>
+        알레르기, 회수, 판매중지.<br>흩어진 정보를 <em>한곳에서.</em>
+      </h2>
+      <p class="lead lead-center" data-scroll-reveal>
+        같은 과자라도 아이에게 중요한 정보는 다릅니다.<br class="br-wide">
+        어푸는 제품이 아니라 우리 아이를 먼저 둡니다.
+      </p>
+    </div>
+  </section>
+
+  <section class="band band-gray" id="profile" aria-labelledby="profile-title">
+    <div class="inner split">
+      <div class="split-copy" data-scroll-reveal>
+        <p class="kicker">01 아이 프로필</p>
+        <h2 id="profile-title" class="big">아이 알레르기,<br>한 번만 등록하세요</h2>
+        <p class="lead">표시 의무 알레르기 항목을 자녀별로 저장해 두면, 이후 모든 확인이 그 기준으로 시작돼요.</p>
+      </div>
+      <div class="split-device" data-scroll-reveal aria-hidden="true">
+        <div class="phone">
+          <div class="phone-screen">
+            <p class="ui-title">우리 아이</p>
+            <div class="ui-profile">
+              <span class="ui-avatar">민</span>
+              <div><strong>민지</strong><small>6세 · 알레르기 3개</small></div>
+            </div>
+            <p class="ui-label">알레르기 항목</p>
+            <div class="ui-chips">
+              <span class="chip chip-on">땅콩</span>
+              <span class="chip chip-on">우유</span>
+              <span class="chip chip-on">계란</span>
+              <span class="chip">대두</span>
+              <span class="chip">밀</span>
+              <span class="chip">새우</span>
+              <span class="chip">복숭아</span>
+              <span class="chip">고등어</span>
+            </div>
+            <span class="ui-button">저장하기</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-white" id="check" aria-labelledby="check-title">
+    <div class="inner split split-reverse">
+      <div class="split-copy" data-scroll-reveal>
+        <p class="kicker">02 제품 확인</p>
+        <h2 id="check-title" class="big">제품을 찾으면,<br>아이 기준으로 보여 줘요</h2>
+        <p class="lead">제품명이나 업체로 검색하거나 쇼핑 링크를 붙여 넣으면, 포장 표시를 아이 프로필과 바로 대조해요.</p>
+      </div>
+      <div class="split-device" data-scroll-reveal aria-hidden="true">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="ui-search"><span>쿠키</span></div>
+            <div class="ui-card ui-card-warn ui-card-big">
+              <span class="ui-pill ui-pill-warn">주의 항목</span>
+              <strong>가상 고소한 쿠키</strong>
+              <small>민지 기준으로 확인이 필요해요</small>
+              <ul class="ui-hits">
+                <li><i></i>땅콩 포함 표시</li>
+                <li><i></i>우유 포함 표시</li>
+              </ul>
+            </div>
+            <div class="ui-card">
+              <span class="ui-pill ui-pill-ok">표시 확인</span>
+              <strong>가상 쌀과자</strong>
+              <small>등록한 항목이 표시에 없어요</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-gray" id="recall" aria-labelledby="recall-title">
+    <div class="inner split">
+      <div class="split-copy" data-scroll-reveal>
+        <p class="kicker">03 회수·판매중지</p>
+        <h2 id="recall-title" class="big">회수 소식,<br>놓치지 않도록</h2>
+        <p class="lead">관심 제품을 담아 두면 회수·판매중지 기록을 한눈에 모아 볼 수 있어요.</p>
+      </div>
+      <div class="split-device" data-scroll-reveal aria-hidden="true">
+        <div class="phone">
+          <div class="phone-screen">
+            <p class="ui-title">회수 정보</p>
+            <div class="ui-list">
+              <div class="ui-row"><span class="ui-dot ui-dot-alert"></span><div><strong>가상 딸기 젤리</strong><small>가상 회수 · 표시 오류</small></div></div>
+              <div class="ui-row"><span class="ui-dot ui-dot-warn"></span><div><strong>가상 초코 시리얼</strong><small>가상 판매중지 · 이물 혼입</small></div></div>
+              <div class="ui-row"><span class="ui-dot ui-dot-ok"></span><div><strong>가상 쌀과자</strong><small>기록 없음</small></div></div>
+              <div class="ui-row"><span class="ui-dot ui-dot-ok"></span><div><strong>가상 보리차</strong><small>기록 없음</small></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-white band-stats" aria-labelledby="stats-title">
+    <div class="inner inner-center">
+      <h2 id="stats-title" class="mega" data-scroll-reveal>
+        숫자로 보는 <em>어푸</em>
+      </h2>
+      <dl class="stats">
+        <div class="stat" data-scroll-reveal>
+          <dt>표시 의무 알레르기 항목</dt>
+          <dd><b data-count="22">22</b><span>종</span></dd>
+        </div>
+        <div class="stat" data-scroll-reveal>
+          <dt>확인까지 필요한 단계</dt>
+          <dd><b data-count="3">3</b><span>단계</span></dd>
+        </div>
+        <div class="stat" data-scroll-reveal>
+          <dt>한 화면에서 보는 정보</dt>
+          <dd><b data-count="2">2</b><span>가지</span></dd>
+        </div>
+      </dl>
+      <p class="stat-note" data-scroll-reveal>표시 항목 수는 식품 표시 기준을 따릅니다. 단계·정보 수는 현재 미리보기 서비스 기준입니다.</p>
+    </div>
+  </section>
+
+  <section class="band band-gray" id="promise" aria-labelledby="promise-title">
+    <div class="inner">
+      <h2 id="promise-title" class="mega mega-left" data-scroll-reveal>
+        어푸가<br>지키는 약속
+      </h2>
+      <div class="cards">
+        <article class="card" data-scroll-reveal>
+          <span class="card-icon card-icon-blue" aria-hidden="true">아</span>
+          <h3>아이 먼저</h3>
+          <p>제품 순위가 아니라 우리 아이의 알레르기 기준으로 정보를 정리해요.</p>
+        </article>
+        <article class="card" data-scroll-reveal>
+          <span class="card-icon card-icon-mint" aria-hidden="true">근</span>
+          <h3>판정이 아닌 근거</h3>
+          <p>안전하다고 단정하지 않고, 표시와 기록을 있는 그대로 보여 드려요.</p>
+        </article>
+        <article class="card" data-scroll-reveal>
+          <span class="card-icon card-icon-amber" aria-hidden="true">기</span>
+          <h3>내 기기 안에만</h3>
+          <p>자녀 정보는 이 기기 안에만 저장돼요. 계정을 만들지 않아도 시작할 수 있어요.</p>
+        </article>
+        <article class="card" data-scroll-reveal>
+          <span class="card-icon card-icon-gray" aria-hidden="true">미</span>
+          <h3>지금은 미리보기</h3>
+          <p>현재는 가상 제품·가상 회수 사례로 동작해요. 실제 식품 판단에는 사용하지 마세요.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-white band-closer" aria-labelledby="closer-title">
+    <div class="inner">
+      <div class="closer-panel" data-scroll-reveal>
+        <img class="closer-mark" src="/ahpu-mark.svg" alt="" width="72" height="72">
+        <h2 id="closer-title" class="mega closer-title">오늘부터,<br>우리 아이 기준으로.</h2>
+        <div class="hero-cta">
+          <a class="btn btn-white" href="/">앱 열기</a>
+          <a class="btn btn-glass" href="/demo">전체 데모</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="inner footer-inner">
+    <p class="footer-brand"><img src="/ahpu-mark.svg" alt="" width="22" height="22"><span>어푸</span><span class="footer-latin" lang="en">AHPU</span></p>
+    <p class="footer-meta">식품 알레르기·회수 정보 확인을 위한 보호자용 서비스 미리보기입니다. 실제 식품의 안전성이나 회수 여부를 판정하지 않습니다.</p>
+    <p class="footer-links"><a href="/">앱</a><a href="/demo">데모</a></p>
+  </div>
+</footer>
+</body>
+</html>

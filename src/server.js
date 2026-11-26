@@ -7,12 +7,34 @@ import {createLookupProviders} from './providers/lookup.js';
 import {createRateLimiter, clientKey} from './rate-limit.js';
 import {PARTNERS_DISCLOSURE} from './providers/coupang-partners.js';
 import {productSearchTerm} from '../public/allergen-keywords.js';
-export const assets = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/demo':['demo.html','text/html; charset=utf-8'],'/demo.html':['demo.html','text/html; charset=utf-8'],'/demo.js':['demo.js','text/javascript; charset=utf-8'],'/demo.css':['demo.css','text/css; charset=utf-8'],'/allergen-keywords.js':['allergen-keywords.js','text/javascript; charset=utf-8'],'/route.js':['route.js','text/javascript; charset=utf-8'],'/catalog.js':['catalog.js','text/javascript; charset=utf-8']};
+export const assets = {
+ '/':['index.html','text/html; charset=utf-8'],
+ '/app.js':['app.js','text/javascript; charset=utf-8'],
+ '/styles.css':['styles.css','text/css; charset=utf-8'],
+ '/landing':['landing.html','text/html; charset=utf-8'],
+ '/landing.html':['landing.html','text/html; charset=utf-8'],
+ '/landing.js':['landing.js','text/javascript; charset=utf-8'],
+ '/landing.css':['landing.css','text/css; charset=utf-8'],
+ '/favicon.svg':['favicon.svg','image/svg+xml'],
+ '/ahpu-mark.svg':['ahpu-mark.svg','image/svg+xml'],
+ '/demo':['demo.html','text/html; charset=utf-8'],
+ '/demo.html':['demo.html','text/html; charset=utf-8'],
+ '/demo.js':['demo.js','text/javascript; charset=utf-8'],
+ '/demo.css':['demo.css','text/css; charset=utf-8'],
+ '/allergen-keywords.js':['allergen-keywords.js','text/javascript; charset=utf-8'],
+ '/route.js':['route.js','text/javascript; charset=utf-8'],
+ '/catalog.js':['catalog.js','text/javascript; charset=utf-8'],
+ '/fonts/outfit-400.woff2':['fonts/outfit-400.woff2','font/woff2'],
+ '/fonts/outfit-700.woff2':['fonts/outfit-700.woff2','font/woff2'],
+ '/fonts/outfit-800.woff2':['fonts/outfit-800.woff2','font/woff2'],
+ '/fonts/noto-sans-kr-400.woff2':['fonts/noto-sans-kr-400.woff2','font/woff2'],
+ '/fonts/noto-sans-kr-900.woff2':['fonts/noto-sans-kr-900.woff2','font/woff2']
+};
 export function createHandler({provider = createProvider(process.env.DATA_PROVIDER || 'demo'), lookup = createLookupProviders(), limiter = createRateLimiter()} = {}) {
  return async (req,res)=> {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' data: https://*.coupangcdn.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   const json = (code,data) => {res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   try {
    if (req.method !== 'GET') return json(405,{error:'GET 요청만 지원합니다.'});
