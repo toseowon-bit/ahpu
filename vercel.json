@@ -10,10 +10,27 @@
       "includeFiles": "public/**"
     }
   },
+  "routes": [
+    {
+      "src": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "landing.ahpu.kr"
+        }
+      ],
+      "dest": "/landing.html"
+    }
+  ],
   "rewrites": [
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "landing.ahpu.kr" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "landing.ahpu.kr"
+        }
+      ],
       "destination": "/landing.html"
     },
     {
