@@ -32,6 +32,19 @@ test('마케팅 랜딩(/landing)은 브랜드 히어로와 외부 자산 없는 
   assert.ok(assets['/landing']);
   assert.ok(assets['/fonts/noto-sans-kr-900.woff2']);
   assert.ok(assets['/fonts/outfit-800.woff2']);
+  assert.match(html, /rel="icon" href="\/favicon\.svg"/);
+  assert.doesNotMatch(html, /toss/i);
+  for (const path of ['/favicon.svg', '/ahpu-mark.svg']) {
+    const r = await fetch(base + path);
+    assert.equal(r.status, 200, path);
+    assert.match(r.headers.get('content-type') || '', /image\/svg\+xml/);
+    const svg = await r.text();
+    assert.match(svg, /<svg[^>]+viewBox="0 0 100 100"/);
+    assert.match(svg, /<circle cx="62" cy="44" r="17"/);
+  }
+  const imgSrcs = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(imgSrcs.length > 0);
+  for (const src of imgSrcs) assert.equal((await fetch(base + src)).status, 200, src);
   const font = await fetch(base + '/fonts/noto-sans-kr-900.woff2');
   assert.equal(font.status, 200);
   assert.match(font.headers.get('content-type') || '', /font\/woff2/);

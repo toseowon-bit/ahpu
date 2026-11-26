@@ -15,6 +15,8 @@ export const assets = {
  '/landing.html':['landing.html','text/html; charset=utf-8'],
  '/landing.js':['landing.js','text/javascript; charset=utf-8'],
  '/landing.css':['landing.css','text/css; charset=utf-8'],
+ '/favicon.svg':['favicon.svg','image/svg+xml'],
+ '/ahpu-mark.svg':['ahpu-mark.svg','image/svg+xml'],
  '/demo':['demo.html','text/html; charset=utf-8'],
  '/demo.html':['demo.html','text/html; charset=utf-8'],
  '/demo.js':['demo.js','text/javascript; charset=utf-8'],

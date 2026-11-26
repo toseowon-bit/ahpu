@@ -6,8 +6,23 @@ function revealHero() {
       el.classList.add('is-in');
       return;
     }
-    requestAnimationFrame(() => el.classList.add('is-in'));
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
   });
+}
+
+function countUp(el) {
+  const target = Number(el.dataset.count);
+  if (!Number.isFinite(target) || reduceMotion) return;
+  const start = performance.now();
+  const duration = 1100;
+  const tick = (now) => {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = String(Math.round(target * eased));
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  el.textContent = '0';
+  requestAnimationFrame(tick);
 }
 
 function setupScrollReveal() {
@@ -22,10 +37,11 @@ function setupScrollReveal() {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         entry.target.classList.add('is-in');
+        entry.target.querySelectorAll('[data-count]').forEach(countUp);
         io.unobserve(entry.target);
       }
     },
-    { rootMargin: '0px 0px -12% 0px', threshold: 0.15 }
+    { rootMargin: '0px 0px -10% 0px', threshold: 0.12 }
   );
   nodes.forEach((el) => io.observe(el));
 }
@@ -33,40 +49,11 @@ function setupScrollReveal() {
 function setupNav() {
   const nav = document.querySelector('[data-nav]');
   if (!nav) return;
-  const onScroll = () => {
-    nav.classList.toggle('is-scrolled', window.scrollY > 12);
-  };
+  const onScroll = () => nav.classList.toggle('is-scrolled', window.scrollY > 8);
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
-}
-
-/** Hero parallax: atmosphere layers drift slightly against scroll */
-function setupParallax() {
-  const root = document.querySelector('[data-parallax]');
-  const visual = document.querySelector('.hero-visual');
-  if (!root || reduceMotion) return;
-
-  let ticking = false;
-  const update = () => {
-    ticking = false;
-    const y = Math.min(window.scrollY, window.innerHeight);
-    const p = y / Math.max(window.innerHeight, 1);
-    root.style.transform = `translate3d(0, ${p * 36}px, 0)`;
-    if (visual) visual.style.transform = `translate3d(0, ${p * -48}px, 0)`;
-  };
-
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
-    },
-    { passive: true }
-  );
 }
 
 revealHero();
 setupScrollReveal();
 setupNav();
-setupParallax();
