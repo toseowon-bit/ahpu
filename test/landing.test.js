@@ -34,6 +34,11 @@ test('마케팅 랜딩(/landing)은 브랜드 히어로와 외부 자산 없는 
   assert.ok(assets['/fonts/outfit-800.woff2']);
   assert.match(html, /rel="icon" href="\/favicon\.svg"/);
   assert.doesNotMatch(html, /toss/i);
+  const hrefs = [...html.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)].map((m) => m[1]);
+  assert.doesNotMatch(hrefs.join('\n'), /^\/(demo)?$/m, '앱·데모 링크는 상대 경로가 아니라 ahpu.kr 절대 URL이어야 한다');
+  assert.equal(hrefs.filter((h) => h === 'https://ahpu.kr/').length, 4);
+  assert.equal(hrefs.filter((h) => h === 'https://ahpu.kr/demo').length, 3);
+  assert.ok(!/<a\b[^>]*target=/.test(html), 'CTA는 같은 탭에서 열린다');
   for (const path of ['/favicon.svg', '/ahpu-mark.svg']) {
     const r = await fetch(base + path);
     assert.equal(r.status, 200, path);
