@@ -54,11 +54,17 @@ test('마케팅 랜딩(/landing)은 브랜드 히어로와 외부 자산 없는 
   );
 });
 
-test('vercel.json에 landing.ahpu.kr 호스트 리라이트가 있다', () => {
+test('vercel.json은 landing.ahpu.kr 루트를 정적 index.html보다 먼저 /landing으로 보낸다', () => {
   const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
-  const hostRewrite = cfg.rewrites.find(
-    (r) => r.destination === '/landing.html' && r.has?.[0]?.value === 'landing.ahpu.kr'
+  const redirect = cfg.redirects?.find(
+    (r) => r.source === '/' && r.has?.[0]?.type === 'host' && r.has[0].value === 'landing.ahpu.kr'
   );
-  assert.ok(hostRewrite);
+  assert.ok(redirect, 'redirects는 정적 파일보다 먼저 평가된다');
+  assert.equal(redirect.destination, '/landing');
+  assert.equal(redirect.permanent, false);
+  assert.ok(
+    !cfg.rewrites.some((r) => r.source === '/'),
+    '정적 public/index.html이 있어 "/" 리라이트는 적용되지 않는다'
+  );
   assert.ok(cfg.rewrites.some((r) => r.source === '/landing' && r.destination === '/landing.html'));
 });
